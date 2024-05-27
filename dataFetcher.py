@@ -28,7 +28,8 @@ class DataFetcher:
         save_instruments_to_file(instruments)
         return instruments
 
-    def create_data_for_pair(self, pair: str, granularity: str, count=4000):
+    def create_data_for_pair(self, pair: str, granularity: str, count=4000) -> pd.DataFrame:
         candles: pd.DataFrame = self.get_candles_for_pair(pair, count, granularity)
         print("Loaded {} candles for pair {}, from {} to {}".format(candles.shape[0], pair, candles['time'].min(), candles['time'].max()))
         save_candles_to_file(candles, pair, granularity)
+        return candles

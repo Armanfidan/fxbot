@@ -1,9 +1,9 @@
 import itertools
 import pandas as pd
 
-import constants
 from dataFetcher import DataFetcher
 from utilities import plot_candles
+from tradeGenerator import TradeGenerator
 
 if __name__ == '__main__':
     data_fetcher = DataFetcher()
@@ -13,6 +13,8 @@ if __name__ == '__main__':
     for curr1, curr2 in itertools.combinations(our_curr, 2):
         pair = '{}_{}'.format(curr1, curr2)
         if pair in instruments['name'].unique():
-            data_fetcher.create_data_for_pair(pair, 'H1')
+            historical_data: pd.DataFrame = data_fetcher.create_data_for_pair(pair, 'H1')
             plot_candles(pair, 'H1')
-            break
+            trade_generator = TradeGenerator(pair)
+            trade_generator.generate_ma_crossover_trades()
+            pass

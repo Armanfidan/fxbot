@@ -51,11 +51,14 @@ def get_historical_data_filename(pair: str, granularity: str) -> str:
 
 
 def plot_candles(pair: str, granularity: str):
+    candles = get_price_data(pair, granularity)
+    fig = go.Figure()
+    fig.add_trace(go.Candlestick(x=candles.time, open=candles['mid.o'], high=candles['mid.h'], low=candles['mid.l'], close=candles['mid.c']))
+    fig.show()
+
+
+def get_price_data(pair: str, granularity: str) -> pd.DataFrame:
     candles = pd.read_pickle(get_historical_data_filename(pair, granularity))
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
-    fig = go.Figure()
-    fig.add_trace(go.Candlestick(
-        x=candles.time, open=candles['mid.o'], high=candles['mid.h'], low=candles['mid.l'], close=candles['mid.c'],
-    ))
-    fig.show( )
+    return candles

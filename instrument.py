@@ -1,6 +1,8 @@
 import os.path
+from typing import List, Dict
 
 import pandas as pd
+from v20.primitives import Instrument
 
 import constants
 
@@ -18,7 +20,7 @@ class Instrument:
 
     @classmethod
     def get_instruments_df(cls):
-        instruments: str = Constants.INSTRUMENTS_FILENAME
+        instruments: str = constants.INSTRUMENTS_FILENAME
         if not os.path.isfile(instruments):
             raise IOError("Could not find instrument file '{}'.".format(instruments))
         return pd.read_pickle(instruments)
@@ -27,6 +29,16 @@ class Instrument:
     def get_instruments_list(cls):
         df = cls.get_instruments_df()
         return [Instrument(x) for x in df.to_dict(orient='records')]
+
+    @classmethod
+    def get_instruments_dict(cls) -> Dict[str, Instrument]:
+        instruments: List[Instrument] = cls.get_instruments_list()
+        return {k: v for k, v in zip([inst.name for inst in instruments], instruments)}
+
+    @classmethod
+    def get_instrument_by_name(cls, pair_name: str) -> Instrument:
+        instruments: Dict[str, Instrument] = cls.get_instruments_dict()
+        return instruments[pair_name] if pair_name in instruments else None
 
 
 if __name__ == "__main__":
