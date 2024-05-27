@@ -1,10 +1,17 @@
+from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any
 
 import pandas as pd
 import plotly.graph_objects as go
 
+from dataclasses import dataclass
+
 import constants
+
+
+class Strategy(Enum):
+    MA_CROSSOVER = 'Moving Average Crossover'
 
 
 def flatten_candle(candle: Dict[str, Any]):
