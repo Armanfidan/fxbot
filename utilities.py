@@ -54,13 +54,59 @@ def save_candles_to_file(candles: pd.DataFrame, pair: str, granularity: str, fro
 
 
 def get_historical_data_filename(pair: str, granularity: str, from_time: datetime, to_time: datetime) -> str:
-    return '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity, from_time.strftime("%Y-%m-%dT%H-%M-%S"), to_time.strftime("%Y-%m-%dT%H-%M-%S"))
+    return '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity, from_time.strftime("%Y-%m-%dT%H-%M-%S"),
+                                               to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 
-def plot_candles(pair: str, granularity: str, from_time: datetime, to_time: datetime):
-    candles = get_price_data(pair, granularity, from_time, to_time)
-    fig = go.Figure()
-    fig.add_trace(go.Candlestick(x=candles.time, open=candles['mid.o'], high=candles['mid.h'], low=candles['mid.l'], close=candles['mid.c']))
+def plot_candles(historical_data: pd.DataFrame, from_date: datetime, to_date: datetime, ma_short: int, ma_long: int, title: str) -> None:
+    candles = historical_data[(from_date < historical_data['time']) & (historical_data['time'] < to_date)]
+    fig = go.Figure(layout_title_text=title)
+    fig.add_trace(go.Candlestick(
+        x=candles['time'],
+        open=candles['mid.o'],
+        high=candles['mid.h'],
+        low=candles['mid.l'],
+        close=candles['mid.c'],
+        name='Prices'))
+    for col in ["MA_{}".format(ma) for ma in (ma_short, ma_long)]:
+        fig.add_trace(go.Scatter(x=candles['time'],
+                                 y=candles[col],
+                                 line=dict(width=2, shape='spline'),
+                                 name=col
+                                 ))
+    fig.add_trace(go.Scatter(mode='markers',
+                             x=candles[candles['trade'] == -1]['time'],
+                             y=candles[candles['trade'] == -1]['mid.c'],
+                             marker=dict(symbol='arrow-down',
+                                         size=20,
+                                         color='#eb5242',
+                                         line_color='#e67c70',
+                                         line_width=2
+                                         ),
+                             name='Sell'
+                             ))
+    fig.add_trace(go.Scatter(mode='markers',
+                             x=candles[candles['trade'] == 1]['time'],
+                             y=candles[candles['trade'] == 1]['mid.c'],
+                             marker=dict(symbol='arrow-up',
+                                         size=20,
+                                         color='#579773',
+                                         line_color='#95cfae',
+                                         line_width=2
+                                         ),
+                             name='Buy'
+                             ))
+    fig.update_layout(font=dict(size=10, color="#e1e1e1"),
+                      paper_bgcolor="#1e1e1e",
+                      plot_bgcolor="#1e1e1e")
+    fig.update_xaxes(
+        gridcolor="#1f292f",
+        showgrid=True, fixedrange=False
+    )
+    fig.update_yaxes(
+        gridcolor="#1f292f",
+        showgrid=True, fixedrange=False
+    )
     fig.show()
 
 
