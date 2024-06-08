@@ -1,11 +1,10 @@
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import List, Dict, Any
 
 import pandas as pd
 import plotly.graph_objects as go
-
-from dataclasses import dataclass
 
 import constants
 
@@ -38,14 +37,16 @@ def save_instruments_to_file(instruments: pd.DataFrame):
         raise IOError("Could not save instruments to file. Error: {}".format(e))
 
 
-def save_candles_to_file(candles: pd.DataFrame, pair: str, granularity: str):
+def save_candles_to_file(candles: pd.DataFrame, pair: str, granularity: str, from_time: datetime, to_time: datetime):
     """
     Save candles to file.
+    :param to_time: The date that candles are collected up to.
+    :param from_time: The date that the candles start from.
     :param candles: DF containing candles.
     :param pair: Currency pair that the candles belong to.
     :param granularity: Granularity of the candles.
     """
-    pickle_path = '{}/{}_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity)
+    pickle_path = '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity, from_time.strftime("%Y-%m-%dT%H-%M-%S"), to_time.strftime("%Y-%m-%dT%H-%M-%S"))
     try:
         Path(constants.CANDLE_FOLDER).mkdir(parents=True, exist_ok=True)
         candles.to_pickle(pickle_path)
@@ -65,7 +66,11 @@ def plot_candles(pair: str, granularity: str):
 
 
 def get_price_data(pair: str, granularity: str) -> pd.DataFrame:
-    candles = pd.read_pickle(get_historical_data_filename(pair, granularity))
+    try:
+        candles = pd.read_pickle(get_historical_data_filename(pair, granularity))
+    except FileNotFoundError:
+        print("No historical data found for currency pair {} at granularity {}. Downloading...".format(pair, granularity))
+        return pd.DataFrame(columns=['time', 'mid.o', 'mid.h', 'mid.l', 'mid.c'])
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
     return candles

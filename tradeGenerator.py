@@ -23,6 +23,7 @@ class TradeGenerator:
                                               if historical_data is not None
                                               else get_price_data(pair, granularity)[['time'] + price_columns])
         self.historical_data['returns'] = self.historical_data['mid.c'] - self.historical_data['mid.c'].shift(1)
+        self.trades: pd.DataFrame = pd.DataFrame()
         self.params: Dict[str, Any] | None = None
 
     def _generate_moving_average_indicators(self, short_window: int, long_window: int) -> Tuple[str, str]:
@@ -35,9 +36,16 @@ class TradeGenerator:
 
     def _generate_ma_crossover_trades(self, short_window: int, long_window: int):
         ma_short, ma_long = self._generate_moving_average_indicators(short_window, long_window)
-        self.historical_data['bought'] = np.where(self.historical_data[ma_short] > self.historical_data[ma_long], 1, 0)
-        self.historical_data['trade'] = np.where(self.historical_data['bought'] > self.historical_data['bought'].shift(1), 1, 0)
-        self.historical_data['trade'] = np.where(self.historical_data['bought'] < self.historical_data['bought'].shift(1), -1, self.historical_data['trade'])
+        self.historical_data['holding'] = np.where(self.historical_data[ma_short] > self.historical_data[ma_long], 1, -1)
+        self.historical_data['trade'] = np.where(self.historical_data['holding'] != self.historical_data['holding'].shift(1), self.historical_data['holding'], 0)
+        self.trades = self.historical_data[self.historical_data['trade'] != 0][['time', 'mid.c', 'trade']]
+
+    def _generate_trade_detail_columns(self) -> pd.DataFrame:
+        if self.trades.empty:
+            raise ValueError("Please generate trades before using this function.")
+        self.trades['gain'] = self.trades['mid.c'].diff().shift(-1)
+        self.trades['duration'] = self.trades['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
+        return self.trades
 
     def generate_trades(self, **kwargs) -> pd.DataFrame:
         """
@@ -54,7 +62,7 @@ class TradeGenerator:
             if not self.params:
                 raise ValueError('Please pass the short_window and long_window parameters to genertae trades with the MA crossover strategy.')
             self._generate_ma_crossover_trades(self.params['short_window'], self.params['long_window'])
-        return self.historical_data
+        return self._generate_trade_detail_columns()
 
     def evaluate_pair_returns(self):
         self.historical_data['log_returns'] = np.log(1 + self.historical_data['returns'])
@@ -68,7 +76,7 @@ class TradeGenerator:
             pair=self.pair,
             strategy=self.strategy,
             params=self.params,
-            historical_data=self.historical_data,
+            trades=self.trades,
         )
         return strategy_results
 

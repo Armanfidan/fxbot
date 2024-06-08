@@ -1,15 +1,12 @@
-import itertools
-import pandas as pd
+from datetime import datetime
 
 from dataFetcher import DataFetcher
 from simulator import Simulator
-from utilities import plot_candles, Strategy
-from tradeGenerator import TradeGenerator
+from utilities import Strategy
 
 if __name__ == '__main__':
     data_fetcher = DataFetcher()
-    instruments: pd.DataFrame = data_fetcher.get_instruments_and_save_to_file()
 
     currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
     simulator = Simulator(strategy=Strategy.MA_CROSSOVER)
-    simulator.run(currencies, use_downloaded_data=True)
+    simulator.run(currencies, use_downloaded_data=False, from_time=datetime(2016, 1, 1), file_type='csv')
