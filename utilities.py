@@ -46,28 +46,27 @@ def save_candles_to_file(candles: pd.DataFrame, pair: str, granularity: str, fro
     :param pair: Currency pair that the candles belong to.
     :param granularity: Granularity of the candles.
     """
-    pickle_path = '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity, from_time.strftime("%Y-%m-%dT%H-%M-%S"), to_time.strftime("%Y-%m-%dT%H-%M-%S"))
     try:
         Path(constants.CANDLE_FOLDER).mkdir(parents=True, exist_ok=True)
-        candles.to_pickle(pickle_path)
+        candles.to_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except Exception as e:
         raise IOError("Could not save candles to file. Error: {}".format(e))
 
 
-def get_historical_data_filename(pair: str, granularity: str) -> str:
-    return '{}/{}_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity)
+def get_historical_data_filename(pair: str, granularity: str, from_time: datetime, to_time: datetime) -> str:
+    return '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity, from_time.strftime("%Y-%m-%dT%H-%M-%S"), to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 
-def plot_candles(pair: str, granularity: str):
-    candles = get_price_data(pair, granularity)
+def plot_candles(pair: str, granularity: str, from_time: datetime, to_time: datetime):
+    candles = get_price_data(pair, granularity, from_time, to_time)
     fig = go.Figure()
     fig.add_trace(go.Candlestick(x=candles.time, open=candles['mid.o'], high=candles['mid.h'], low=candles['mid.l'], close=candles['mid.c']))
     fig.show()
 
 
-def get_price_data(pair: str, granularity: str) -> pd.DataFrame:
+def get_price_data(pair: str, granularity: str, from_time: datetime, to_time: datetime) -> pd.DataFrame:
     try:
-        candles = pd.read_pickle(get_historical_data_filename(pair, granularity))
+        candles = pd.read_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except FileNotFoundError:
         print("No historical data found for currency pair {} at granularity {}. Downloading...".format(pair, granularity))
         return pd.DataFrame(columns=['time', 'mid.o', 'mid.h', 'mid.l', 'mid.c'])

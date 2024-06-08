@@ -1,4 +1,4 @@
-from enum import Enum
+from datetime import datetime
 from typing import Tuple, Any, Dict
 
 import numpy as np
@@ -14,14 +14,14 @@ sns.set_theme()
 
 
 class TradeGenerator:
-    def __init__(self, pair: str, strategy: Strategy = Strategy.MA_CROSSOVER, historical_data: pd.DataFrame = None, granularity: str = 'H1'):
+    def __init__(self, pair: str, granularity: str, from_time: datetime, to_time: datetime, strategy: Strategy = Strategy.MA_CROSSOVER, historical_data: pd.DataFrame = None):
         self.pair: str = pair
         self.granularity: str = granularity
         self.strategy: Strategy = strategy
         price_columns = ['mid.o', 'mid.h', 'mid.l', 'mid.c']
         self.historical_data: pd.DataFrame = (historical_data[['time'] + price_columns].copy()
                                               if historical_data is not None
-                                              else get_price_data(pair, granularity)[['time'] + price_columns])
+                                              else get_price_data(pair, granularity, from_time, to_time)[['time'] + price_columns])
         self.historical_data['returns'] = self.historical_data['mid.c'] - self.historical_data['mid.c'].shift(1)
         self.trades: pd.DataFrame = pd.DataFrame()
         self.params: Dict[str, Any] | None = None
