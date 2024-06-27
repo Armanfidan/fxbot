@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from strategyResults import StrategyResults
-from utilities import get_price_data, Strategy, Granularity
+from utilities import get_downloaded_price_data_for_pair, Strategy, Granularity
 
 sns.set_theme()
 
@@ -28,7 +28,7 @@ class TradeGenerator:
         self.strategy: Strategy = strategy
         price_columns = ['mid_o', 'mid_h', 'mid_l', 'mid_c']
         self.historical_data: DataFrame = (historical_data[['time'] + price_columns].copy() if historical_data is not None
-                                              else get_price_data(pair, granularity, from_time, to_time)[['time'] + price_columns])
+                                              else get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)[['time'] + price_columns])
         self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)
         self.trades: DataFrame = pd.DataFrame()
         self.params: Dict[str, Any] = {}

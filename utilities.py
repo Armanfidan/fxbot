@@ -84,7 +84,15 @@ def get_historical_data_filename(pair: str, granularity: Granularity, from_time:
                                                to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 
-def get_price_data(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
+def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
+    """
+    Retrieves downloaded price data for a given pair and granularity, between 2 provided dates. Returns an empty DataFrame if no data is found.
+    :param pair: Currency pair to retrieve data for
+    :param granularity: Granularity to retrieve data for
+    :param from_time: Start time to retrieve data from.
+    :param to_time: End time to retrieve data to.
+    :return: A DataFrame with the retrieved data if found, empty DataFrame if not.
+    """
     try:
         candles = pd.read_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except FileNotFoundError:

@@ -21,14 +21,13 @@ if __name__ == '__main__':
         from_time=datetime(2023, 1, 1),
         to_time=datetime.now()
     )
-    simulator = Simulator(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
+    simulator = Simulator(use_downloaded_currency_pairs=True, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
         granularity=Granularity.H4,
-        # ma_windows=[16, 32, 64, 128, 256],
-        use_only_downloaded_data=False,
+        use_only_downloaded_price_data=False,
         from_time=datetime(2016, 1, 1),
         to_time=datetime(2024, 6, 8, 12, 49, 14),
         file_type='csv'
     )
-    # simulator.plot_results_for_selected_data()
+    simulator.plot_results_for_selected_data()
