@@ -8,8 +8,8 @@ from plotly import graph_objects as go
 def add_signal_trace(fig: go.Figure, candles: DataFrame, signal_type: Literal['buy', 'sell']):
     buy: bool = signal_type == 'buy'
     fig.add_trace(go.Scatter(mode='markers',
-                             x=candles[candles['trade'] == 1 if buy else -1]['time'],
-                             y=candles[candles['trade'] == 1 if buy else -1]['mid_c'],
+                             x=candles[candles['trade'] == (1 if buy else -1)]['time'],
+                             y=candles[candles['trade'] == (1 if buy else -1)]['mid_c'],
                              marker=dict(symbol='arrow-{}'.format('up' if buy else 'down'),
                                          size=20,
                                          color='#579773' if buy else '#eb5242',
@@ -45,8 +45,10 @@ def plot_candles_for_inside_bar_momentum(historical_data: DataFrame, from_date: 
             x=candles[candles['trade'] != 0]['time'],
             y=candles[candles['trade'] != 0][col],
             mode='markers',
-            marker=dict(color=colour, size=12)
+            marker=dict(color=colour, size=12),
+            name=col.replace('_', ' ').title()
         ))
+    fig.show()
 
 
 def plot_candles(candles, title):

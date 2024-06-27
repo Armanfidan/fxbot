@@ -8,7 +8,8 @@ from utilities import Strategy, Granularity
 if __name__ == '__main__':
     data_fetcher = DataFetcher()
 
-    currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
+    # currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
+    currencies = ['EUR', 'USD', 'GBP']
     # currencies = ['EUR', 'USD', 'GBP']
     # data_range_for_plotting = PlotProperties(
     #     currencies,
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     # )
     data_range_for_plotting = PlotProperties(
         currencies=currencies,
-        from_time=datetime(2023, 1, 1),
+        from_time=datetime(2024, 4, 1),
         to_time=datetime.now()
     )
     simulator = Simulator(use_downloaded_currency_pairs=True, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)

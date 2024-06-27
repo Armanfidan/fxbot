@@ -131,7 +131,7 @@ class Simulator:
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
             pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
-            trade_generator: TradeGenerator = TradeGenerator(pair, pip_location, granularity, from_time, to_time, self.strategy, price_data)
+            trade_generator: TradeGenerator = TradeGenerator(pair, pip_location, granularity, price_data, self.strategy)
 
             if self.strategy == Strategy.MA_CROSSOVER:
                 self.run_simulation_for_ma_crossover_strategy(ma_windows, pair, results, trade_generator)

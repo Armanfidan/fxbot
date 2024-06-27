@@ -10,8 +10,9 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from strategyResults import StrategyResults
-from utilities import get_downloaded_price_data_for_pair, Strategy, Granularity
+from utilities import Strategy, Granularity
 
+pd.options.mode.chained_assignment = None
 sns.set_theme()
 
 
@@ -21,14 +22,13 @@ TAKE_PROFIT_MUL = 0.8
 
 
 class TradeGenerator:
-    def __init__(self, pair: str, pip_location: float, granularity: Granularity, from_time: datetime, to_time: datetime, strategy: Strategy = Strategy.MA_CROSSOVER, historical_data: DataFrame = None):
+    def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame, strategy: Strategy = Strategy.MA_CROSSOVER):
         self.pair: str = pair
         self.pip_location: float = pip_location
         self.granularity: Granularity = granularity
         self.strategy: Strategy = strategy
         price_columns = ['mid_o', 'mid_h', 'mid_l', 'mid_c']
-        self.historical_data: DataFrame = (historical_data[['time'] + price_columns].copy() if historical_data is not None
-                                              else get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)[['time'] + price_columns])
+        self.historical_data: DataFrame = historical_data[['time'] + price_columns].copy()
         self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)
         self.trades: DataFrame = pd.DataFrame()
         self.params: Dict[str, Any] = {}
@@ -49,22 +49,21 @@ class TradeGenerator:
 
     def _generate_inside_bar_momentum_indicators(self):
         self.historical_data['range_prev'] = (self.historical_data['mid_h'] - self.historical_data['mid_l']).shift(1)
-        # self.historical_data['range_prev'] = self.historical_data['range'].shift(1)
         self.historical_data['mid_h_prev'] = self.historical_data['mid_h'].shift(1)
         self.historical_data['mid_l_prev'] = self.historical_data['mid_l'].shift(1)
-        self.historical_data['direction_prev'] = self.historical_data.apply(lambda row: 1 if row['mid_c'] > row['mid_o'] else -1, axis=1).shift(1).fillna(0).astype(int)
-        # self.historical_data['direction_prev'] = self.historical_data['direction'].
+        self.historical_data['direction_prev'] = self.historical_data.apply(lambda row: 1 if row['mid_c'] > row['mid_o'] else -1, axis=1).shift(1)
         self.historical_data.dropna(inplace=True)
         self.historical_data.reset_index(drop=True, inplace=True)
 
     @staticmethod
     def _inside_bar_momentum_indicators(indicator: Literal['entry_stop', 'stop_loss', 'take_profit'], row: Dict[str, float]):
+        reference_price_column = 'mid_h_prev' if row['trade'] == 1 else 'mid_l_prev'
         if indicator == 'entry_stop':
-            return row['mid_h_prev'] + row['trade'] * (row['range_prev'] * ENTRY_PRICE_MUL)
+            return row[reference_price_column] + row['trade'] * (row['range_prev'] * ENTRY_PRICE_MUL)
         if indicator == 'stop_loss':
-            return row['mid_h_prev'] + row['trade'] * (row['range_prev'] * STOP_LOSS_MUL)
+            return row[reference_price_column] + -1 * row['trade'] * (row['range_prev'] * STOP_LOSS_MUL)
         if indicator == 'take_profit':
-            return row['mid_h_prev'] + row['trade'] * (row['range_prev'] * TAKE_PROFIT_MUL)
+            return row[reference_price_column] + row['trade'] * (row['range_prev'] * TAKE_PROFIT_MUL)
 
     def _generate_inside_bar_momentum_trades(self):
         self._generate_inside_bar_momentum_indicators()
