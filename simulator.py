@@ -29,8 +29,21 @@ class Simulator:
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
 
-    def get_trade_data_for_all_combinations_of_currencies(self, currencies: List[str], granularity: Granularity, use_only_downloaded_data: bool, from_time: datetime,
+    def get_price_data_for_all_combinations_of_currencies(self,
+                                                          currencies: List[str],
+                                                          granularity: Granularity,
+                                                          use_only_downloaded_price_data: bool,
+                                                          from_time: datetime,
                                                           to_time: datetime) -> Dict[str, DataFrame]:
+        """
+        For all selected currency combinations, retrieve historical price data. Look for downloaded prices first. If not found, download from OANDA.
+        :param currencies: Currencies to pair up and retrieve data for.
+        :param granularity: Price data granularity.
+        :param use_only_downloaded_price_data: If True, skips pairs without downloaded data. If false, retrieves data from OANDA for pairs without downloaded data.
+        :param from_time: The start date and time to download the price data from.
+        :param to_time: The end date and time to download the price data to.
+        :return: A dictionary with pairs and their corresponding historical trade data.
+        """
         currency_data: Dict[str, DataFrame] = {}
         for curr1 in currencies:
             for curr2 in currencies:
@@ -39,8 +52,12 @@ class Simulator:
                 pair = '{}_{}'.format(curr1, curr2)
                 if pair in self.instruments['name'].unique():
                     price_data: DataFrame = get_price_data(pair, granularity, from_time, to_time)
-                    currency_data[pair] = (get_price_data(pair, granularity, from_time, to_time) if use_only_downloaded_data else
-                                           self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time))
+                    if price_data.size == 0:
+                        if use_only_downloaded_price_data:
+                            print("No price data found for pair '{}'. Skipping pair - please enable \"use_only_downloaded_data\".".format(pair))
+                            continue
+                        price_data = self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time)
+                    currency_data[pair] = price_data
         return currency_data
 
     @staticmethod
@@ -93,7 +110,7 @@ class Simulator:
         if ma_windows is None:
             ma_windows = [4, 8, 16, 32, 64, 96, 128, 256]
         # Retrieve candles for each currency
-        historical_price_data_for_currencies: Dict[str, DataFrame] = self.get_trade_data_for_all_combinations_of_currencies(currencies,
+        historical_price_data_for_currencies: Dict[str, DataFrame] = self.get_price_data_for_all_combinations_of_currencies(currencies,
                                                                                                                             granularity,
                                                                                                                             use_only_downloaded_data,
                                                                                                                             from_time,
