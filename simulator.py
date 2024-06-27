@@ -11,7 +11,8 @@ from dataFetcher import DataFetcher
 from plotProperties import PlotProperties
 from strategyResults import StrategyResults
 from tradeGenerator import TradeGenerator
-from utilities import Strategy, get_price_data, plot_candles
+from utilities import Strategy, get_price_data
+from plot_candles import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal
@@ -26,7 +27,7 @@ class Simulator:
                                        else self.data_fetcher.get_instruments_and_save_to_file())
         self.strategy: Strategy = strategy
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting
-        self.plot_data: Dict[Tuple[str, int, int], DataFrame] = {}
+        self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
 
     def get_trade_data_for_all_combinations_of_currencies(self, currencies: List[str], granularity: str, use_downloaded_data: bool, from_time: datetime,
                                                           to_time: datetime) -> Dict[str, DataFrame]:
@@ -54,21 +55,31 @@ class Simulator:
         return results_df.set_index('pair')
 
     def save_results(self, results: DataFrame, file_type: Literal['csv', 'pickle']) -> None:
+        test_results_folder = 'test_results'
+        filename = '{}/{}_test_res_{}.{{}}'.format(test_results_folder, self.strategy.value, datetime.now().strftime('%Y%m%d-%H%M%S'))
         if file_type == 'csv':
-            results.to_csv('{}_test_res.csv'.format(self.strategy.value))
+            results.to_csv(filename.format('csv'))
         else:
-            results.to_pickle('{}_test_res.pkl'.format(self.strategy.value))
+            results.to_pickle(filename.format('pkl'))
         print(results)
 
     def plot_results_for_selected_data(self):
         if not self.plot_data:
             raise ValueError("No data saved for plotting.")
-        for (pair, short_window, long_window), data in self.plot_data.items():
-            plot_start = self.data_range_for_plotting.from_time
-            plot_end = self.data_range_for_plotting.to_time
-            title = "{} Strategy Results for Currency Pair {}, with windows {} and {}, from {} to {}" \
-                .format(self.strategy.value, pair, short_window, long_window, plot_start, plot_end)
-            plot_candles(data, plot_start, plot_end, short_window, long_window, title)
+        if self.strategy == Strategy.MA_CROSSOVER:
+            for (pair, short_window, long_window), data in self.plot_data.items():
+                plot_start = self.data_range_for_plotting.from_time
+                plot_end = self.data_range_for_plotting.to_time
+                title = "{} Strategy Results for Currency Pair {}, with windows {} and {}, from {} to {}" \
+                    .format(self.strategy.value, pair, short_window, long_window, plot_start, plot_end)
+                plot_candles_for_ma_crossover(data, plot_start, plot_end, short_window, long_window, title)
+        elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
+            for pair, data in self.plot_data.items():
+                plot_start = self.data_range_for_plotting.from_time
+                plot_end = self.data_range_for_plotting.to_time
+                title = "{} Strategy Results for Currency Pair {}, from {} to {}" \
+                    .format(self.strategy.value, pair, plot_start, plot_end)
+                plot_candles_for_inside_bar_momentum(data, plot_start, plot_end, title)
 
     def run(self,
             currencies: List[str],
@@ -85,16 +96,25 @@ class Simulator:
         results: List[StrategyResults] = []
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
-            trade_generator: TradeGenerator = TradeGenerator(pair, granularity, from_time, to_time, self.strategy, price_data)
+            pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
+            trade_generator: TradeGenerator = TradeGenerator(pair, pip_location, granularity, from_time, to_time, self.strategy, price_data)
 
-            for short_window, long_window in itertools.combinations(ma_windows, 2):
-                if short_window >= long_window:
-                    continue
-                trade_generator.generate_trades(short_window=short_window, long_window=long_window)
+            if self.strategy == Strategy.MA_CROSSOVER:
+                for short_window, long_window in itertools.combinations(ma_windows, 2):
+                    if short_window >= long_window:
+                        continue
+                    trade_generator.generate_trades(short_window=short_window, long_window=long_window, use_pips=True)
+                    results.append(trade_generator.evaluate_strategy())
+
+                    if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
+                        self.plot_data[(pair, short_window, long_window)] = trade_generator.historical_data.copy()
+
+            elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
+                trade_generator.generate_trades(use_pips=True)
                 results.append(trade_generator.evaluate_strategy())
 
-                if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                    self.plot_data[(pair, short_window, long_window)] = trade_generator.historical_data.copy()
+                if pair in self.data_range_for_plotting.currency_pairs:
+                    self.plot_data[pair] = trade_generator.historical_data.copy()
 
         results_df = self.create_results_df(results)
         self.save_results(results_df, file_type)

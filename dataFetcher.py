@@ -5,6 +5,7 @@ from typing import Dict, Tuple, List
 
 import v20
 import pandas as pd
+from pandas import DataFrame
 
 import constants
 from utilities import flatten_candle, save_candles_to_file, save_instruments_to_file
@@ -55,9 +56,10 @@ class DataFetcher:
         if response.status != 200:
             raise HTTPException(
                 "Cannot get candlesticks for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
-        candles: pd.DataFrame = pd.DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
-        columns = [col for col in candles.columns if col not in ['time', 'volume']]
+        candles: DataFrame = pd.DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
+        columns: List = list(set(candles.columns) - {'time', 'volume'})
         candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
+        candles.rename(columns={col: col.replace('.', '_') for col in columns}, inplace=True)
         candles['time'] = pd.to_datetime(pd.to_numeric(candles['time']), unit='s')
         return candles, candles.iloc[-1]['time']
 
@@ -79,7 +81,7 @@ class DataFetcher:
         return instruments
 
     def create_data_for_pair(self, pair: str, granularity: str, from_time: datetime, to_time: datetime = datetime.now()) -> pd.DataFrame:
-        candles: pd.DataFrame = self.get_candles_for_pair(pair=pair, granularity=granularity, from_time=from_time, to_time=to_time)
+        candles: DataFrame = self.get_candles_for_pair(pair=pair, granularity=granularity, from_time=from_time, to_time=to_time)
         print("Loaded {} candles for pair {}, from {} to {}".format(candles.shape[0], pair, candles['time'].min(), candles['time'].max()))
         save_candles_to_file(candles, pair, granularity, from_time, to_time)
         return candles

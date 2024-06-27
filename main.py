@@ -10,18 +10,23 @@ if __name__ == '__main__':
 
     currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
     # currencies = ['EUR', 'USD', 'GBP']
+    # data_range_for_plotting = PlotProperties(
+    #     currencies,
+    #     [(32, 64), (32, 128), (64, 128)],
+    #     datetime(2023, 1, 1),
+    #     datetime.now()
+    # )
     data_range_for_plotting = PlotProperties(
-        currencies,
-        [(32, 64), (32, 128), (64, 128)],
-        datetime(2023, 1, 1),
-        datetime.now()
+        currencies=currencies,
+        from_time=datetime(2023, 1, 1),
+        to_time=datetime.now()
     )
-    simulator = Simulator(strategy=Strategy.MA_CROSSOVER, data_range_for_plotting=data_range_for_plotting)
+    simulator = Simulator(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
-        granularity='H1',
+        granularity='H4',
         # ma_windows=[16, 32, 64, 128, 256],
-        use_downloaded_data=True,
+        use_downloaded_data=False,
         from_time=datetime(2016, 1, 1),
         to_time=datetime(2024, 6, 8, 12, 49, 14),
         file_type='csv'
