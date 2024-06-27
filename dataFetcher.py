@@ -1,42 +1,16 @@
 from datetime import datetime, timedelta
 import time
 from http.client import HTTPException
-from typing import Dict, Tuple, List
+from typing import Tuple, List
 
 import v20
 import pandas as pd
 from pandas import DataFrame
 
 import constants
-from utilities import flatten_candle, save_candles_to_file, save_instruments_to_file
-
+from utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, Granularity
 
 MAX_CANDLESTICKS: int = 5000
-
-GRANULARITY_TO_TIMEDELTA: Dict[str, timedelta] = {
-    'S5': timedelta(seconds=5),
-    'S10': timedelta(seconds=10),
-    'S15': timedelta(seconds=15),
-    'S30': timedelta(seconds=30),
-    'M1': timedelta(minutes=1),
-    'M2': timedelta(minutes=2),
-    'M3': timedelta(minutes=3),
-    'M4': timedelta(minutes=4),
-    'M5': timedelta(minutes=5),
-    'M10': timedelta(minutes=10),
-    'M15': timedelta(minutes=15),
-    'M30': timedelta(minutes=30),
-    'H1': timedelta(hours=1),
-    'H2': timedelta(hours=2),
-    'H3': timedelta(hours=3),
-    'H4': timedelta(hours=4),
-    'H6': timedelta(hours=6),
-    'H8': timedelta(hours=8),
-    'H12': timedelta(hours=12),
-    'D': timedelta(days=1),
-    'W': timedelta(weeks=1),
-    'M': timedelta(days=30),
-}
 
 
 class DataFetcher:
@@ -47,11 +21,11 @@ class DataFetcher:
             datetime_format='UNIX'
         )
 
-    def get_max_candles_possible(self, pair: str, granularity: str, from_time: datetime, to_time: datetime) -> Tuple[pd.DataFrame, datetime]:
+    def get_max_candles_possible(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> Tuple[pd.DataFrame, datetime]:
 
-        number_of_candlesticks_from_start_to_now = (to_time - from_time) / GRANULARITY_TO_TIMEDELTA[granularity]
+        number_of_candlesticks_from_start_to_now = (to_time - from_time) / Granularity.value
         number_of_candlesticks_to_fetch = min(MAX_CANDLESTICKS, int(number_of_candlesticks_from_start_to_now))
-        response: v20.response = self.api.instrument.candles(instrument=pair, fromTime=time.mktime(from_time.timetuple()), granularity=granularity, price='MBA',
+        response: v20.response = self.api.instrument.candles(instrument=pair, fromTime=time.mktime(from_time.timetuple()), granularity=granularity.name, price='MBA',
                                                              count=number_of_candlesticks_to_fetch)
         if response.status != 200:
             raise HTTPException(
@@ -63,7 +37,15 @@ class DataFetcher:
         candles['time'] = pd.to_datetime(pd.to_numeric(candles['time']), unit='s')
         return candles, candles.iloc[-1]['time']
 
-    def get_candles_for_pair(self, pair: str, granularity: str, from_time: datetime, to_time: datetime) -> pd.DataFrame:
+    def get_candles_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
+        """
+        For a given pair, retrieves the candles from the start time to the end time.
+        :param pair: Currency pair name.
+        :param granularity: Candlestick granularity.
+        :param from_time:
+        :param to_time:
+        :return:
+        """
         start_time: datetime = from_time
         prev_start_time: datetime = start_time - timedelta(seconds=1)
         candles: List[pd.DataFrame] = []
@@ -74,13 +56,17 @@ class DataFetcher:
             candles.append(curr_candles)
         return pd.concat(candles).drop_duplicates()
 
-    def get_instruments_and_save_to_file(self) -> pd.DataFrame:
+    def get_instruments_and_save_to_file(self) -> DataFrame:
+        """
+        Retrieves the instruments from the OANDA API and saves them to a file.
+        :return: The instruments DataFrame.
+        """
         response: v20.response = self.api.account.instruments(constants.OANDA_ACCOUNT_ID)
         instruments = pd.DataFrame([vars(instrument) for instrument in response.body['instruments']])
         save_instruments_to_file(instruments)
         return instruments
 
-    def create_data_for_pair(self, pair: str, granularity: str, from_time: datetime, to_time: datetime = datetime.now()) -> pd.DataFrame:
+    def create_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime = datetime.now()) -> DataFrame:
         candles: DataFrame = self.get_candles_for_pair(pair=pair, granularity=granularity, from_time=from_time, to_time=to_time)
         print("Loaded {} candles for pair {}, from {} to {}".format(candles.shape[0], pair, candles['time'].min(), candles['time'].max()))
         save_candles_to_file(candles, pair, granularity, from_time, to_time)

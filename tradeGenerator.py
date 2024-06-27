@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from strategyResults import StrategyResults
-from utilities import get_price_data, Strategy
+from utilities import get_price_data, Strategy, Granularity
 
 sns.set_theme()
 
@@ -21,10 +21,10 @@ TAKE_PROFIT_MUL = 0.8
 
 
 class TradeGenerator:
-    def __init__(self, pair: str, pip_location: float, granularity: str, from_time: datetime, to_time: datetime, strategy: Strategy = Strategy.MA_CROSSOVER, historical_data: DataFrame = None):
+    def __init__(self, pair: str, pip_location: float, granularity: Granularity, from_time: datetime, to_time: datetime, strategy: Strategy = Strategy.MA_CROSSOVER, historical_data: DataFrame = None):
         self.pair: str = pair
         self.pip_location: float = pip_location
-        self.granularity: str = granularity
+        self.granularity: Granularity = granularity
         self.strategy: Strategy = strategy
         price_columns = ['mid_o', 'mid_h', 'mid_l', 'mid_c']
         self.historical_data: DataFrame = (historical_data[['time'] + price_columns].copy() if historical_data is not None
@@ -74,7 +74,7 @@ class TradeGenerator:
         self.historical_data['take_profit'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'take_profit'), axis=1)
         self.trades = self.historical_data[self.historical_data['trade'] != 0]
 
-    def _generate_trade_detail_columns(self, use_pips: bool) -> pd.DataFrame:
+    def _generate_trade_detail_columns(self, use_pips: bool) -> DataFrame:
         if self.trades.empty:
             raise ValueError("Please generate trades before using this function.")
         if use_pips:
@@ -84,7 +84,7 @@ class TradeGenerator:
         self.trades['duration'] = self.trades['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
         return self.trades
 
-    def generate_trades(self, use_pips: bool, **kwargs) -> pd.DataFrame:
+    def generate_trades(self, use_pips: bool, **kwargs) -> DataFrame:
         """
         Generate trades based on a pre-defined strategy.
         :param use_pips: Whether to use pips to calculate returns. If false, will use nominal value.

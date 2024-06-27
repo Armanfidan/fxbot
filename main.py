@@ -3,7 +3,7 @@ from datetime import datetime
 from dataFetcher import DataFetcher
 from plotProperties import PlotProperties
 from simulator import Simulator
-from utilities import Strategy
+from utilities import Strategy, Granularity
 
 if __name__ == '__main__':
     data_fetcher = DataFetcher()
@@ -24,9 +24,9 @@ if __name__ == '__main__':
     simulator = Simulator(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
-        granularity='H4',
+        granularity=Granularity.H4,
         # ma_windows=[16, 32, 64, 128, 256],
-        use_downloaded_data=False,
+        use_only_downloaded_data=False,
         from_time=datetime(2016, 1, 1),
         to_time=datetime(2024, 6, 8, 12, 49, 14),
         file_type='csv'

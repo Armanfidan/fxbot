@@ -11,7 +11,7 @@ from dataFetcher import DataFetcher
 from plotProperties import PlotProperties
 from strategyResults import StrategyResults
 from tradeGenerator import TradeGenerator
-from utilities import Strategy, get_price_data
+from utilities import Strategy, get_price_data, Granularity
 from plot_candles import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
 
 if sys.version_info < (3, 8):
@@ -29,7 +29,7 @@ class Simulator:
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
 
-    def get_trade_data_for_all_combinations_of_currencies(self, currencies: List[str], granularity: str, use_downloaded_data: bool, from_time: datetime,
+    def get_trade_data_for_all_combinations_of_currencies(self, currencies: List[str], granularity: Granularity, use_only_downloaded_data: bool, from_time: datetime,
                                                           to_time: datetime) -> Dict[str, DataFrame]:
         currency_data: Dict[str, DataFrame] = {}
         for curr1 in currencies:
@@ -38,7 +38,8 @@ class Simulator:
                     continue
                 pair = '{}_{}'.format(curr1, curr2)
                 if pair in self.instruments['name'].unique():
-                    currency_data[pair] = (get_price_data(pair, granularity, from_time, to_time) if use_downloaded_data else
+                    price_data: DataFrame = get_price_data(pair, granularity, from_time, to_time)
+                    currency_data[pair] = (get_price_data(pair, granularity, from_time, to_time) if use_only_downloaded_data else
                                            self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time))
         return currency_data
 
@@ -83,16 +84,21 @@ class Simulator:
 
     def run(self,
             currencies: List[str],
+            granularity: Granularity,
             from_time: datetime,
             to_time: datetime = datetime.now(),
-            use_downloaded_data: bool = False,
-            granularity: str = 'H1',
+            use_only_downloaded_data: bool = False,
             ma_windows=None, file_type: str = 'csv') -> None:
 
         if ma_windows is None:
             ma_windows = [4, 8, 16, 32, 64, 96, 128, 256]
-        historical_price_data_for_currencies = self.get_trade_data_for_all_combinations_of_currencies(currencies, granularity, use_downloaded_data, from_time,
-                                                                                                      to_time)
+        # Retrieve candles for each currency
+        historical_price_data_for_currencies: Dict[str, DataFrame] = self.get_trade_data_for_all_combinations_of_currencies(currencies,
+                                                                                                                            granularity,
+                                                                                                                            use_only_downloaded_data,
+                                                                                                                            from_time,
+                                                                                                                            to_time)
+
         results: List[StrategyResults] = []
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
