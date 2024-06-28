@@ -78,10 +78,10 @@ class SignalGenerator:
     def generate_inside_bar_momentum_signal_detail_columns(self, use_pips: bool) -> DataFrame:
         if self.signals.empty or 'entry_time' not in self.historical_data.columns:
             raise ValueError("Please generate signals before using this function.")
+        gain_literal = (self.historical_data['exit_price'] - self.historical_data['entry_price']) * self.historical_data['signal']
+        self.historical_data['gain'] = gain_literal / (10 ** self.pip_location if use_pips else 1)
+        self.historical_data['duration'] = (self.historical_data['exit_time'] - self.historical_data['entry_time']).apply(lambda time: time.seconds / 60)
         self.signals = self.historical_data[self.historical_data['signal'].notna()]
-        gain_literal = (self.signals['exit_price'] - self.signals['entry_price']) * self.signals['signal']
-        self.signals['gain'] = gain_literal / (10 ** self.pip_location if use_pips else 1)
-        self.signals['duration'] = (self.signals['exit_time'] - self.signals['entry_time']).apply(lambda time: time.seconds / 60)
         return self.signals
 
     def _generate_ma_crossover_signal_detail_columns(self, use_pips: bool) -> DataFrame:

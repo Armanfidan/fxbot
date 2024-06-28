@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, List
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from plotly import graph_objects as go
 
 
@@ -15,7 +15,7 @@ def add_signal_trace(fig: go.Figure, candles: DataFrame, signal_type: Literal['b
                                          color='#579773' if buy else '#eb5242',
                                          line_color='#95cfae' if buy else '#e67c70',
                                          line_width=2),
-                             name=str(signal_type).title()))
+                             name=str(signal_type).title() + ' Order'))
 
 
 def plot_candles_for_ma_crossover(historical_data: DataFrame, from_date: datetime, to_date: datetime, ma_short: int, ma_long: int, title: str) -> None:
@@ -31,23 +31,37 @@ def plot_candles_for_ma_crossover(historical_data: DataFrame, from_date: datetim
     fig.show()
 
 
+def add_entry_and_exit_traces(fig: go.Figure, candles: DataFrame):
+    entry_colours: List[str] = ['#043ef9', '#eb5334', '#34eb37']  # For entry stop, stop loss and take profit, respectively.
+    entry_times: Series = candles[candles['entry_time'].notna()]['entry_time']
+    fig.add_trace(go.Scatter(mode='markers',
+                             x=entry_times,
+                             y=candles[candles['time'].isin(entry_times)]['mid_c'],
+                             marker=dict(color=entry_colours[0], size=12),
+                             name='Entry'))
+
+    exit_times_and_gains: DataFrame = candles[candles['exit_time'].notna()][['exit_time', 'gain']]
+    exit_times = exit_times_and_gains[exit_times_and_gains['gain'] > 0]['exit_time']
+    stop_loss_times = exit_times_and_gains[exit_times_and_gains['gain'] <= 0]['exit_time']
+    fig.add_trace(go.Scatter(mode='markers',
+                             x=exit_times,
+                             y=candles[candles['time'].isin(exit_times)]['mid_c'],
+                             marker=dict(color=entry_colours[2], size=12),
+                             name='Exit'))
+    fig.add_trace(go.Scatter(mode='markers',
+                             x=stop_loss_times,
+                             y=candles[candles['time'].isin(stop_loss_times)]['mid_c'],
+                             marker=dict(color=entry_colours[1], size=12),
+                             name='Stop Loss'))
+
+
 def plot_candles_for_inside_bar_momentum(historical_data: DataFrame, from_date: datetime, to_date: datetime, title: str):
     candles = historical_data[(from_date < historical_data['time']) & (historical_data['time'] < to_date)]
     fig = plot_candles(candles, title)
 
     add_signal_trace(fig, candles, 'buy')
     add_signal_trace(fig, candles, 'sell')
-
-    plot_cols = ['entry_stop', 'stop_loss', 'take_profit']
-    plot_colours = ['#043ef9', '#eb5334', '#34eb37']
-    for col, colour in zip(plot_cols, plot_colours):
-        fig.add_trace(go.Scatter(
-            x=candles[candles['signal'] != 0]['time'],
-            y=candles[candles['signal'] != 0][col],
-            mode='markers',
-            marker=dict(color=colour, size=12),
-            name=col.replace('_', ' ').title()
-        ))
+    add_entry_and_exit_traces(fig, candles)
     fig.show()
 
 
