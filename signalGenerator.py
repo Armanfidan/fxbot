@@ -79,10 +79,8 @@ class SignalGenerator:
         if self.signals.empty or 'entry_time' not in self.historical_data.columns:
             raise ValueError("Please generate signals before using this function.")
         self.signals = self.historical_data[self.historical_data['signal'].notna()]
-        if use_pips:
-            self.signals['gain'] = (self.signals['exit_price'] - self.signals['entry_price']) / 10 ** self.pip_location
-        else:
-            self.signals['gain'] = self.signals['exit_price'] - self.signals['entry_price']
+        gain_literal = (self.signals['exit_price'] - self.signals['entry_price']) * self.signals['signal']
+        self.signals['gain'] = gain_literal / (10 ** self.pip_location if use_pips else 1)
         self.signals['duration'] = (self.signals['exit_time'] - self.signals['entry_time']).apply(lambda time: time.seconds / 60)
         return self.signals
 
