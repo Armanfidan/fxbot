@@ -1,7 +1,7 @@
 from datetime import datetime
 import itertools
 import sys
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 import pandas as pd
 from pandas import DataFrame
@@ -131,15 +131,20 @@ class Simulator:
             raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
         signal_generator.generate_signals(use_pips=True)
         simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']]
-        simulation_data = simulation_data.merge(signal_generator.signals[['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']], how='left', on='time')
-        simulation_data = simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:]
-        non_materialised_trades: List[Trade] = []
-        closed_trades: List[Trade] = []
+
+        signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
+        sim_data_tmp: DataFrame = pd.merge_asof(signal_generator.signals[signal_cols], simulation_data, on='time', tolerance=simulation_granularity.value, direction='nearest')
+        simulation_data = simulation_data.merge(sim_data_tmp[signal_cols], how='left', on='time')
+        del sim_data_tmp
+        simulation_data = simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:]  # Remove candles until the first trade, won't make a diff.
+
+        non_materialised_trades: List[Dict[str, Any]] = []
+        closed_trades: List[Dict[str, Any]] = []
         current_trade: Trade | None = Trade(simulation_data.iloc[0])
         closed_trade_already_saved: bool = False
         for index, row in simulation_data.iterrows():
             # Our trade is closed and there are no new trades. Keep skipping.
-            while closed_trade_already_saved and isnan(row['signal']):
+            if closed_trade_already_saved and isnan(row['signal']):
                 continue
 
             current_trade.update(row)
@@ -148,15 +153,19 @@ class Simulator:
             if not isnan(row['signal']):
                 if current_trade.is_open():  # Check whether the previous trade is open.
                     current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
-                    non_materialised_trades.append(current_trade)
+                    non_materialised_trades.append(vars(current_trade))
                 current_trade = Trade(row)  # Create a new trade from the current row.
                 closed_trade_already_saved = False  # New trade! Not already saved.
                 continue  # We don't want to update the trade (We just opened it), so skip the rest.
 
             # --- CASE WHEN THE TRADE IS CLOSED ---
             if current_trade.exit_time is not None and not closed_trade_already_saved:
-                closed_trades.append(current_trade)
+                closed_trades.append(vars(current_trade))
                 closed_trade_already_saved = True
+
+        closed_trades_df: DataFrame = DataFrame(closed_trades)
+        non_materialised_trades_df: DataFrame = DataFrame(non_materialised_trades)
+        simulation_data.merge(closed_trades_df, how='')
 
         signal_generator.set_historical_data(simulation_data)
         results.append(signal_generator.evaluate_strategy())

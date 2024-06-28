@@ -28,7 +28,7 @@ if __name__ == '__main__':
         trade_granularity=Granularity.H4,
         simulation_granularity=Granularity.M5,
         use_only_downloaded_price_data=False,
-        from_time=datetime(2016, 1, 1),
+        from_time=datetime(2024, 1, 1),
         to_time=datetime(2024, 6, 8, 12, 49, 14),
         file_type='csv'
     )
