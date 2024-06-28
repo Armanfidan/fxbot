@@ -5,11 +5,11 @@ from utilities import Strategy
 
 
 class StrategyResults:
-    def __init__(self, pair: str, strategy: Strategy, params: Dict[str, Any], trades: DataFrame):
+    def __init__(self, pair: str, strategy: Strategy, params: Dict[str, Any], signals: DataFrame):
         self.pair: str = pair
         self.strategy: Strategy = strategy
         self.params: Dict[str, Any] = params
-        self.trades: DataFrame = trades
+        self.trades: DataFrame = signals
         self.num_longs, self.num_shorts = self._strategy_stats()
         self.total_trades = self.num_shorts + self.num_longs
         self.buy_hold_returns, self.total_gain, self.mean_gain, self.min_gain, self.max_gain = self._evaluate_strategy()

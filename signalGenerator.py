@@ -31,7 +31,7 @@ class SignalGenerator:
         self.params: Dict[str, Any] = {}
         
     def set_historical_data(self, historical_data: DataFrame):
-        self.historical_data = historical_data[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']].copy()
+        self.historical_data = historical_data.copy()
 
     def _generate_moving_average_indicators(self, short_window: int, long_window: int) -> Tuple[str, str]:
         ma_names: Tuple[str, str] = ('MA_{}'.format(short_window), 'MA_{}'.format(long_window))
@@ -75,7 +75,18 @@ class SignalGenerator:
         self.historical_data.drop(['mid_h_prev', 'mid_l_prev', 'direction_prev'], axis=1, inplace=True)
         self.signals = self.historical_data[self.historical_data['signal'] != 0]
 
-    def _generate_signal_detail_columns(self, use_pips: bool) -> DataFrame:
+    def generate_inside_bar_momentum_signal_detail_columns(self, use_pips: bool) -> DataFrame:
+        if self.signals.empty or 'entry_time' not in self.historical_data.columns:
+            raise ValueError("Please generate signals before using this function.")
+        self.signals = self.historical_data[self.historical_data['signal'].notna()]
+        if use_pips:
+            self.signals['gain'] = (self.signals['exit_price'] - self.signals['entry_price']) / 10 ** self.pip_location
+        else:
+            self.signals['gain'] = self.signals['exit_price'] - self.signals['entry_price']
+        self.signals['duration'] = (self.signals['exit_time'] - self.signals['entry_time']).apply(lambda time: time.seconds / 60)
+        return self.signals
+
+    def _generate_ma_crossover_signal_detail_columns(self, use_pips: bool) -> DataFrame:
         if self.signals.empty:
             raise ValueError("Please generate signals before using this function.")
         if use_pips:
@@ -101,9 +112,10 @@ class SignalGenerator:
             if not self.params:
                 raise ValueError('Please pass the short_window and long_window parameters to generate signals with the MA crossover strategy.')
             self._generate_ma_crossover_signals(self.params['short_window'], self.params['long_window'])
+            return self._generate_ma_crossover_signal_detail_columns(use_pips)
         elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
             self._generate_inside_bar_momentum_signals()
-        return self._generate_signal_detail_columns(use_pips)
+            return self.signals
 
     # def evaluate_pair_returns(self):
     #     self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)

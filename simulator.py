@@ -131,17 +131,19 @@ class Simulator:
             raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
         signal_generator.generate_signals(use_pips=True)
         simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']]
+        simulation_data = self.sort_and_reset(simulation_data)
 
         signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
         sim_data_tmp: DataFrame = pd.merge_asof(signal_generator.signals[signal_cols], simulation_data, on='time', tolerance=simulation_granularity.value, direction='nearest')
         simulation_data = simulation_data.merge(sim_data_tmp[signal_cols], how='left', on='time')
         del sim_data_tmp
-        simulation_data = simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:]  # Remove candles until the first trade, won't make a diff.
+        simulation_data = self.sort_and_reset(simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:])  # Remove candles until the first trade, won't make a diff.
 
         non_materialised_trades: List[Dict[str, Any]] = []
         closed_trades: List[Dict[str, Any]] = []
         current_trade: Trade | None = Trade(simulation_data.iloc[0])
         closed_trade_already_saved: bool = False
+
         for index, row in simulation_data.iterrows():
             # Our trade is closed and there are no new trades. Keep skipping.
             if closed_trade_already_saved and isnan(row['signal']):
@@ -164,14 +166,30 @@ class Simulator:
                 closed_trade_already_saved = True
 
         closed_trades_df: DataFrame = DataFrame(closed_trades)
+        closed_trades_df['trade_closed'] = True
         non_materialised_trades_df: DataFrame = DataFrame(non_materialised_trades)
-        simulation_data.merge(closed_trades_df, how='')
+        non_materialised_trades_df.drop(columns=['signal', 'entry_stop', 'stop_loss', 'take_profit', '_Trade__trade_is_open'], inplace=True)
+        non_materialised_trades_df['trade_closed'] = False
+
+        simulation_data = simulation_data.merge(closed_trades_df[['time', 'entry_time', 'entry_price', 'exit_time', 'exit_price', 'trade_closed']], how='left', on='time')
+        simulation_data = simulation_data[~simulation_data['time'].isin(list(non_materialised_trades_df['time']))]
+        simulation_data = self.sort_and_reset(pd.concat([simulation_data, non_materialised_trades_df]))
 
         signal_generator.set_historical_data(simulation_data)
+        signal_generator.generate_inside_bar_momentum_signal_detail_columns(use_pips=True)
         results.append(signal_generator.evaluate_strategy())
         # Save data to be plotted
         if pair in self.data_range_for_plotting.currency_pairs:
             self.plot_data[pair] = signal_generator.historical_data.copy()
+
+    @staticmethod
+    def sort_and_reset(simulation_data):
+        """
+        Sorts the simulation data DataFrame by time and resets its index.
+        :param simulation_data: Simuation data DataFrame to use.
+        :return: The sorted and reset DataFrame.
+        """
+        return simulation_data.sort_values(by='time').reset_index(drop=True)
 
     def run(self,
             currencies: List[str],

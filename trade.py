@@ -20,7 +20,7 @@ class Trade:
         self.exit_price: float | None = None
         # Whether the trade is still running/open.
         self.__trade_is_open: bool = False
-        self.gain: float = 0
+        # self.gain: float = 0
 
     def is_open(self):
         return self.__trade_is_open
@@ -47,7 +47,7 @@ class Trade:
         self.exit_time = candle['time']
         self.exit_price = candle['mid_c']
         self.__trade_is_open = False
-        self.gain = self.exit_price - self.entry_price
+        # self.gain = self.exit_price - self.entry_price
 
     def check_exit(self, candle: Series) -> bool:
         buy_stop_loss_reached: bool = self.signal == 1 and candle['mid_c'] <= self.stop_loss
