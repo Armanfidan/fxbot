@@ -25,7 +25,8 @@ if __name__ == '__main__':
     simulator = Simulator(use_downloaded_currency_pairs=True, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
-        granularity=Granularity.H4,
+        trade_granularity=Granularity.H4,
+        simulation_granularity=Granularity.M5,
         use_only_downloaded_price_data=False,
         from_time=datetime(2016, 1, 1),
         to_time=datetime(2024, 6, 8, 12, 49, 14),

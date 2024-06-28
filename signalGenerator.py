@@ -1,12 +1,10 @@
 import functools
-from datetime import datetime
 from typing import Tuple, Any, Dict, Literal
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from strategyResults import StrategyResults
@@ -21,17 +19,19 @@ STOP_LOSS_MUL = 0.4
 TAKE_PROFIT_MUL = 0.8
 
 
-class TradeGenerator:
+class SignalGenerator:
     def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame, strategy: Strategy = Strategy.MA_CROSSOVER):
         self.pair: str = pair
         self.pip_location: float = pip_location
         self.granularity: Granularity = granularity
         self.strategy: Strategy = strategy
-        price_columns = ['mid_o', 'mid_h', 'mid_l', 'mid_c']
-        self.historical_data: DataFrame = historical_data[['time'] + price_columns].copy()
-        self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)
-        self.trades: DataFrame = pd.DataFrame()
+        self.historical_data: DataFrame = DataFrame()
+        self.set_historical_data(historical_data)
+        self.signals: DataFrame = DataFrame()
         self.params: Dict[str, Any] = {}
+        
+    def set_historical_data(self, historical_data: DataFrame):
+        self.historical_data = historical_data[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']].copy()
 
     def _generate_moving_average_indicators(self, short_window: int, long_window: int) -> Tuple[str, str]:
         ma_names: Tuple[str, str] = ('MA_{}'.format(short_window), 'MA_{}'.format(long_window))
@@ -41,11 +41,11 @@ class TradeGenerator:
         self.historical_data.reset_index(drop=True, inplace=True)
         return ma_names[0], ma_names[1]
 
-    def _generate_ma_crossover_trades(self, short_window: int, long_window: int):
+    def _generate_ma_crossover_signals(self, short_window: int, long_window: int):
         ma_short, ma_long = self._generate_moving_average_indicators(short_window, long_window)
         self.historical_data['holding'] = np.where(self.historical_data[ma_short] > self.historical_data[ma_long], 1, -1)
-        self.historical_data['trade'] = np.where(self.historical_data['holding'] != self.historical_data['holding'].shift(1), self.historical_data['holding'], 0)
-        self.trades = self.historical_data[self.historical_data['trade'] != 0][['time', 'mid_c', 'trade']]
+        self.historical_data['signal'] = np.where(self.historical_data['holding'] != self.historical_data['holding'].shift(1), self.historical_data['holding'], 0)
+        self.signals = self.historical_data[self.historical_data['signal'] != 0][['time', 'mid_c', 'signal']]
 
     def _generate_inside_bar_momentum_indicators(self):
         self.historical_data['range_prev'] = (self.historical_data['mid_h'] - self.historical_data['mid_l']).shift(1)
@@ -55,67 +55,69 @@ class TradeGenerator:
         self.historical_data.dropna(inplace=True)
         self.historical_data.reset_index(drop=True, inplace=True)
 
-    @staticmethod
-    def _inside_bar_momentum_indicators(indicator: Literal['entry_stop', 'stop_loss', 'take_profit'], row: Dict[str, float]):
-        reference_price_column = 'mid_h_prev' if row['trade'] == 1 else 'mid_l_prev'
+    def _inside_bar_momentum_indicators(self, indicator: Literal['entry_stop', 'stop_loss', 'take_profit'], row: Dict[str, float]):
+        if self.granularity not in [Granularity.H4, Granularity.H6, Granularity.H8, Granularity.H12, Granularity.D, Granularity.W, Granularity.M]:
+            raise ValueError('Please enter a granularity larger than or equal to H4 to generate inside bar momentum indicators.')
+        reference_price_column = 'mid_h_prev' if row['signal'] == 1 else 'mid_l_prev'
         if indicator == 'entry_stop':
-            return row[reference_price_column] + row['trade'] * (row['range_prev'] * ENTRY_PRICE_MUL)
+            return row[reference_price_column] + row['signal'] * (row['range_prev'] * ENTRY_PRICE_MUL)
         if indicator == 'stop_loss':
-            return row[reference_price_column] + -1 * row['trade'] * (row['range_prev'] * STOP_LOSS_MUL)
+            return row[reference_price_column] + -1 * row['signal'] * (row['range_prev'] * STOP_LOSS_MUL)
         if indicator == 'take_profit':
-            return row[reference_price_column] + row['trade'] * (row['range_prev'] * TAKE_PROFIT_MUL)
+            return row[reference_price_column] + row['signal'] * (row['range_prev'] * TAKE_PROFIT_MUL)
 
-    def _generate_inside_bar_momentum_trades(self):
+    def _generate_inside_bar_momentum_signals(self):
         self._generate_inside_bar_momentum_indicators()
-        self.historical_data['trade'] = self.historical_data.apply(lambda row: row['direction_prev'] if row['mid_h_prev'] > row['mid_h'] and row['mid_l_prev'] < row['mid_l'] else 0, axis=1)
+        self.historical_data['signal'] = self.historical_data.apply(lambda row: row['direction_prev'] if row['mid_h_prev'] > row['mid_h'] and row['mid_l_prev'] < row['mid_l'] else 0, axis=1)
         self.historical_data['entry_stop'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'entry_stop'), axis=1)
         self.historical_data['stop_loss'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'stop_loss'), axis=1)
         self.historical_data['take_profit'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'take_profit'), axis=1)
-        self.trades = self.historical_data[self.historical_data['trade'] != 0]
+        self.historical_data.drop(['mid_h_prev', 'mid_l_prev', 'direction_prev'], axis=1, inplace=True)
+        self.signals = self.historical_data[self.historical_data['signal'] != 0]
 
-    def _generate_trade_detail_columns(self, use_pips: bool) -> DataFrame:
-        if self.trades.empty:
-            raise ValueError("Please generate trades before using this function.")
+    def _generate_signal_detail_columns(self, use_pips: bool) -> DataFrame:
+        if self.signals.empty:
+            raise ValueError("Please generate signals before using this function.")
         if use_pips:
-            self.trades['gain'] = (self.trades['mid_c'].diff() / 10 ** self.pip_location).shift(-1)
+            self.signals['gain'] = (self.signals['mid_c'].diff() / 10 ** self.pip_location).shift(-1)
         else:
-            self.trades['gain'] = self.trades['mid_c'].diff().shift(-1)
-        self.trades['duration'] = self.trades['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
-        return self.trades
+            self.signals['gain'] = self.signals['mid_c'].diff().shift(-1)
+        self.signals['duration'] = self.signals['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
+        return self.signals
 
-    def generate_trades(self, use_pips: bool, **kwargs) -> DataFrame:
+    def generate_signals(self, use_pips: bool, **kwargs) -> DataFrame:
         """
-        Generate trades based on a pre-defined strategy.
+        Generate signals based on a pre-defined strategy.
         :param use_pips: Whether to use pips to calculate returns. If false, will use nominal value.
         :param kwargs:
             If the strategy is "MA_CROSSOVER", two parameters should be passed.
                 - short_window: Length of the short window to apply for the moving average.
                 - long_window: Length of the long window to apply for the moving average.
             If the strategy is "INSIDE_BAR_MOMENTUM", no parameters need to be passed.
-        :return: A dataframe of historical price data with a column representing trade signals (1 for buy, -1 for sell).
+        :return: A dataframe of historical price data with a column representing signal signals (1 for buy, -1 for sell).
         """
         if self.strategy == Strategy.MA_CROSSOVER:
             self.params = {'short_window': kwargs['short_window'], 'long_window': kwargs['long_window']}
             if not self.params:
-                raise ValueError('Please pass the short_window and long_window parameters to genertae trades with the MA crossover strategy.')
-            self._generate_ma_crossover_trades(self.params['short_window'], self.params['long_window'])
+                raise ValueError('Please pass the short_window and long_window parameters to generate signals with the MA crossover strategy.')
+            self._generate_ma_crossover_signals(self.params['short_window'], self.params['long_window'])
         elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
-            self._generate_inside_bar_momentum_trades()
-        return self._generate_trade_detail_columns(use_pips)
+            self._generate_inside_bar_momentum_signals()
+        return self._generate_signal_detail_columns(use_pips)
 
-    def evaluate_pair_returns(self):
-        self.historical_data['log_returns'] = np.log(1 + self.historical_data['returns'])
-        self.historical_data['log_returns'].plot(title='Log returns of {} currency pair'.format(self.pair), xlabel='Date', ylabel='Return', rot=45)
-        plt.show()
-        self.historical_data['log_returns'].hist(bins=80).set_xlabel("Histogram of log returns of {} currency pair".format(self.pair))
-        plt.show()
+    # def evaluate_pair_returns(self):
+    #     self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)
+    #     self.historical_data['log_returns'] = np.log(1 + self.historical_data['returns'])
+    #     self.historical_data['log_returns'].plot(title='Log returns of {} currency pair'.format(self.pair), xlabel='Date', ylabel='Return', rot=45)
+    #     plt.show()
+    #     self.historical_data['log_returns'].hist(bins=80).set_xlabel("Histogram of log returns of {} currency pair".format(self.pair))
+    #     plt.show()
 
     def evaluate_strategy(self) -> StrategyResults:
         strategy_results: StrategyResults = StrategyResults(
             pair=self.pair,
             strategy=self.strategy,
             params=self.params,
-            trades=self.trades,
+            signals=self.signals,
         )
         return strategy_results
-

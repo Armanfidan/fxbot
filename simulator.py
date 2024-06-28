@@ -6,11 +6,14 @@ from typing import List, Dict, Tuple
 import pandas as pd
 from pandas import DataFrame
 
+from math import isnan
+
 import constants
 from dataFetcher import DataFetcher
 from plotProperties import PlotProperties
 from strategyResults import StrategyResults
-from tradeGenerator import TradeGenerator
+from trade import Trade
+from signalGenerator import SignalGenerator
 from utilities import Strategy, get_downloaded_price_data_for_pair, Granularity
 from plot_candles import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
 
@@ -28,6 +31,14 @@ class Simulator:
         self.strategy: Strategy = strategy
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
+
+    def get_price_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, use_only_downloaded_price_data: bool) -> DataFrame:
+        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
+        if price_data.size != 0:
+            return price_data
+        if use_only_downloaded_price_data:
+            raise IOError("No price data found for pair '{}'. Skipping pair - please enable \"use_only_downloaded_data\".".format(pair))
+        return self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time)
 
     def get_price_data_for_all_combinations_of_currencies(self,
                                                           currencies: List[str],
@@ -47,18 +58,14 @@ class Simulator:
         currency_data: Dict[str, DataFrame] = {}
         for curr1 in currencies:
             for curr2 in currencies:
-                if curr1 == curr2:
-                    continue
                 pair = '{}_{}'.format(curr1, curr2)
-                if pair not in self.instruments['name'].unique():
+                if (curr1 == curr2) or pair not in self.instruments['name'].unique():
                     continue
-                price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
-                if price_data.size == 0:
-                    if use_only_downloaded_price_data:
-                        print("No price data found for pair '{}'. Skipping pair - please enable \"use_only_downloaded_data\".".format(pair))
-                        continue
-                    price_data = self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time)
-                currency_data[pair] = price_data
+                try:
+                    currency_data[pair] = self.get_price_data_for_pair(pair, granularity, from_time, to_time, use_only_downloaded_price_data)
+                except IOError as e:
+                    print(e)
+                    continue
         return currency_data
 
     @staticmethod
@@ -102,17 +109,75 @@ class Simulator:
                     .format(self.strategy.value, pair, plot_start, plot_end)
                 plot_candles_for_inside_bar_momentum(data, plot_start, plot_end, title)
 
+    def simulate_ma_crossover_strategy(self, ma_windows: List[int], pair: str, results: List[StrategyResults], signal_generator: SignalGenerator):
+        for short_window, long_window in itertools.combinations(ma_windows, 2):
+            if short_window >= long_window:
+                continue
+            signal_generator.generate_trades(short_window=short_window, long_window=long_window, use_pips=True)
+            results.append(signal_generator.evaluate_strategy())
+            # Save data to be plotted
+            if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
+                self.plot_data[(pair, short_window, long_window)] = signal_generator.historical_data.copy()
+
+    def simulate_inside_bar_momentum_strategy(self,
+                                              pair: str,
+                                              results: List[StrategyResults],
+                                              signal_generator: SignalGenerator,
+                                              simulation_granularity: Granularity,
+                                              from_time: datetime,
+                                              to_time: datetime,
+                                              use_only_downloaded_price_data: bool):
+        if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
+            raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
+        signal_generator.generate_signals(use_pips=True)
+        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']]
+        simulation_data = simulation_data.merge(signal_generator.signals[['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']], how='left', on='time')
+        simulation_data = simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:]
+        non_materialised_trades: List[Trade] = []
+        closed_trades: List[Trade] = []
+        current_trade: Trade | None = Trade(simulation_data.iloc[0])
+        closed_trade_already_saved: bool = False
+        for index, row in simulation_data.iterrows():
+            # Our trade is closed and there are no new trades. Keep skipping.
+            while closed_trade_already_saved and isnan(row['signal']):
+                continue
+
+            current_trade.update(row)
+
+            # --- CASE WHEN WE HAVE A NEW TRADE. ---
+            if not isnan(row['signal']):
+                if current_trade.is_open():  # Check whether the previous trade is open.
+                    current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
+                    non_materialised_trades.append(current_trade)
+                current_trade = Trade(row)  # Create a new trade from the current row.
+                closed_trade_already_saved = False  # New trade! Not already saved.
+                continue  # We don't want to update the trade (We just opened it), so skip the rest.
+
+            # --- CASE WHEN THE TRADE IS CLOSED ---
+            if current_trade.exit_time is not None and not closed_trade_already_saved:
+                closed_trades.append(current_trade)
+                closed_trade_already_saved = True
+
+        signal_generator.set_historical_data(simulation_data)
+        results.append(signal_generator.evaluate_strategy())
+        # Save data to be plotted
+        if pair in self.data_range_for_plotting.currency_pairs:
+            self.plot_data[pair] = signal_generator.historical_data.copy()
+
     def run(self,
             currencies: List[str],
-            granularity: Granularity,
+            trade_granularity: Granularity,
             from_time: datetime,
             to_time: datetime = datetime.now(),
+            simulation_granularity: Granularity = None,
             use_only_downloaded_price_data: bool = False,
-            ma_windows=None, file_type: str = Literal['csv', 'pkl']) -> None:
+            ma_windows: List[int] | None = None, file_type: str = Literal['csv', 'pkl']) -> None:
         """
         Run simulations on selected currencies with a given strategy between given dates. Save the results.
+        :param simulation_granularity: In some cases, the simulation might have to be run at a different granularity than
+        when the trades are generated. If not specified, this will be set to the same granularity as the trade granularity.
         :param currencies: Currency pairs to run the simulation for.
-        :param granularity: Historical price granularity to run simulations on.
+        :param trade_granularity: Historical price granularity to run simulations on.
         :param from_time: Start date for historical data to run simulations from.
         :param to_time: End date for historical data to run simulations to.
         :param use_only_downloaded_price_data: Whether to skip currency pairs where no downloaded price data was found.
@@ -121,40 +186,25 @@ class Simulator:
         The simulation will be run on all logical combinations on these windows.
         :param file_type: The output file type. Can be 'csv' or 'pkl'.
         """
-        if self.strategy == Strategy.MA_CROSSOVER and ma_windows is None:
+        if self.strategy == Strategy.MA_CROSSOVER and not ma_windows:
             ma_windows = [4, 8, 16, 32, 64, 96, 128, 256]
+        if not simulation_granularity:
+            simulation_granularity = trade_granularity
         # Retrieve candles for each currency
         historical_price_data_for_currencies: Dict[str, DataFrame] = \
-            self.get_price_data_for_all_combinations_of_currencies(currencies, granularity, use_only_downloaded_price_data, from_time, to_time)
+            self.get_price_data_for_all_combinations_of_currencies(currencies, trade_granularity, use_only_downloaded_price_data, from_time, to_time)
 
         results: List[StrategyResults] = []
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
             pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
-            trade_generator: TradeGenerator = TradeGenerator(pair, pip_location, granularity, price_data, self.strategy)
+            signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, trade_granularity, price_data, self.strategy)
 
             if self.strategy == Strategy.MA_CROSSOVER:
-                self.run_simulation_for_ma_crossover_strategy(ma_windows, pair, results, trade_generator)
+                self.simulate_ma_crossover_strategy(ma_windows, pair, results, signal_generator)
 
             elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
-                self.run_simulation_for_inside_bar_momentum_strategy(pair, results, trade_generator)
+                self.simulate_inside_bar_momentum_strategy(pair, results, signal_generator, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
 
         results_df = self.create_results_df(results)
         self.save_results(results_df, file_type)
-
-    def run_simulation_for_inside_bar_momentum_strategy(self, pair, results, trade_generator):
-        trade_generator.generate_trades(use_pips=True)
-        results.append(trade_generator.evaluate_strategy())
-        # Save data to be plotted
-        if pair in self.data_range_for_plotting.currency_pairs:
-            self.plot_data[pair] = trade_generator.historical_data.copy()
-
-    def run_simulation_for_ma_crossover_strategy(self, ma_windows, pair, results, trade_generator):
-        for short_window, long_window in itertools.combinations(ma_windows, 2):
-            if short_window >= long_window:
-                continue
-            trade_generator.generate_trades(short_window=short_window, long_window=long_window, use_pips=True)
-            results.append(trade_generator.evaluate_strategy())
-            # Save data to be plotted
-            if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                self.plot_data[(pair, short_window, long_window)] = trade_generator.historical_data.copy()

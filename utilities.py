@@ -97,7 +97,7 @@ def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from
         candles = pd.read_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except FileNotFoundError:
         print("No historical data found for currency pair {} at granularity {}. Downloading...".format(pair, granularity.name))
-        return pd.DataFrame(columns=['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c'])
+        return DataFrame(columns=['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c'])
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
     return candles

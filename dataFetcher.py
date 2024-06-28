@@ -21,16 +21,16 @@ class DataFetcher:
             datetime_format='UNIX'
         )
 
-    def get_max_candles_possible(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> Tuple[pd.DataFrame, datetime]:
+    def get_max_candles_possible(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> Tuple[DataFrame, datetime]:
 
-        number_of_candlesticks_from_start_to_now = (to_time - from_time) / Granularity.value
+        number_of_candlesticks_from_start_to_now = (to_time - from_time) / granularity.value
         number_of_candlesticks_to_fetch = min(MAX_CANDLESTICKS, int(number_of_candlesticks_from_start_to_now))
         response: v20.response = self.api.instrument.candles(instrument=pair, fromTime=time.mktime(from_time.timetuple()), granularity=granularity.name, price='MBA',
                                                              count=number_of_candlesticks_to_fetch)
         if response.status != 200:
             raise HTTPException(
                 "Cannot get candlesticks for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
-        candles: DataFrame = pd.DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
+        candles: DataFrame = DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
         columns: List = list(set(candles.columns) - {'time', 'volume'})
         candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
         candles.rename(columns={col: col.replace('.', '_') for col in columns}, inplace=True)
@@ -48,7 +48,7 @@ class DataFetcher:
         """
         start_time: datetime = from_time
         prev_start_time: datetime = start_time - timedelta(seconds=1)
-        candles: List[pd.DataFrame] = []
+        candles: List[DataFrame] = []
         while to_time > start_time != prev_start_time:
             prev_start_time = start_time
             start_time += timedelta(seconds=1)
@@ -62,7 +62,7 @@ class DataFetcher:
         :return: The instruments DataFrame.
         """
         response: v20.response = self.api.account.instruments(constants.OANDA_ACCOUNT_ID)
-        instruments = pd.DataFrame([vars(instrument) for instrument in response.body['instruments']])
+        instruments = DataFrame([vars(instrument) for instrument in response.body['instruments']])
         save_instruments_to_file(instruments)
         return instruments
 

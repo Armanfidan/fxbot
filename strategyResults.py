@@ -1,8 +1,6 @@
 from typing import Dict, Any, Tuple
 from pandas import DataFrame
 
-import pandas as pd
-
 from utilities import Strategy
 
 
@@ -20,14 +18,14 @@ class StrategyResults:
         """
         :return: A tuple containing the number of buys and the number of sells
         """
-        return (self.trades['trade'] == 1).sum(), (self.trades['trade'] == -1).sum()
+        return (self.trades['signal'] == 1).sum(), (self.trades['signal'] == -1).sum()
 
     def _evaluate_strategy(self) -> Tuple[float, float, float, float, float]:
         """
         Evaluates the strategy against buying the stock once and holding.
         :return: The total return from buying and holding the stock, and the total, mean, min and max return obtained from the strategy.
         """
-        if 'trade' not in self.trades.columns:
+        if 'signal' not in self.trades.columns:
             raise ValueError('Please generate trades before evaluating the strategy.')
-        buy_hold_returns = self.trades['gain'] * self.trades['trade']
+        buy_hold_returns = self.trades['gain'] * self.trades['signal']
         return buy_hold_returns.sum(), self.trades['gain'].sum(), self.trades['gain'].mean(), self.trades['gain'].min(), self.trades['gain'].max()
