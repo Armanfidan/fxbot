@@ -13,9 +13,9 @@ from DataFetcher import DataFetcher
 from PlotProperties import PlotProperties
 from StrategyResults import StrategyResults
 from Trade import Trade
-from SignalGenerator import SignalGenerator
-from Utilities import Strategy, get_downloaded_price_data_for_pair, Granularity
-from CandlePlotter import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
+from service.SignalGenerator import SignalGenerator
+from Utilities import Strategy, get_downloaded_price_data_for_pair, Granularity, PriceType, PriceColumns
+from CandlePlotter import CandlePlotter
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal
@@ -99,7 +99,7 @@ class Simulator:
                 plot_end = self.data_range_for_plotting.to_time
                 title = "{} Strategy Results for Currency Pair {}, with windows {} and {}, from {} to {}" \
                     .format(self.strategy.value, pair, short_window, long_window, plot_start, plot_end)
-                plot_candles_for_ma_crossover(data, plot_start, plot_end, short_window, long_window, title)
+                CandlePlotter(data, self.pc, plot_start, plot_end).plot_candles_for_ma_crossover(short_window, long_window, title)
 
         elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
             for pair, data in self.plot_data.items():
@@ -107,7 +107,7 @@ class Simulator:
                 plot_end = self.data_range_for_plotting.to_time
                 title = "{} Strategy Results for Currency Pair {}, from {} to {}" \
                     .format(self.strategy.value, pair, plot_start, plot_end)
-                plot_candles_for_inside_bar_momentum(data, plot_start, plot_end, title)
+                CandlePlotter(data, self.pc, plot_start, plot_end).plot_candles_for_inside_bar_momentum(title)
 
     def simulate_ma_crossover_strategy(self, ma_windows: List[int], pair: str, results: List[StrategyResults], signal_generator: SignalGenerator):
         for short_window, long_window in itertools.combinations(ma_windows, 2):
