@@ -8,7 +8,7 @@ import seaborn as sns
 from pandas import DataFrame
 
 from StrategyResults import StrategyResults
-from Utilities import Strategy, Granularity
+from Utilities import Strategy, Granularity, PriceColumns
 
 pd.options.mode.chained_assignment = None
 sns.set_theme()
@@ -20,7 +20,8 @@ TAKE_PROFIT_MUL = 0.8
 
 
 class SignalGenerator:
-    def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame, strategy: Strategy = Strategy.MA_CROSSOVER):
+    def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame, pc: PriceColumns, strategy: Strategy = Strategy.MA_CROSSOVER):
+        self.pc: PriceColumns = pc
         self.pair: str = pair
         self.pip_location: float = pip_location
         self.granularity: Granularity = granularity
@@ -35,8 +36,8 @@ class SignalGenerator:
 
     def _generate_moving_average_indicators(self, short_window: int, long_window: int) -> Tuple[str, str]:
         ma_names: Tuple[str, str] = ('MA_{}'.format(short_window), 'MA_{}'.format(long_window))
-        self.historical_data[ma_names[0]] = self.historical_data['mid_c'].rolling(short_window).mean()
-        self.historical_data[ma_names[1]] = self.historical_data['mid_c'].rolling(long_window).mean()
+        self.historical_data[ma_names[0]] = self.historical_data[self.pc.c].rolling(short_window).mean()
+        self.historical_data[ma_names[1]] = self.historical_data[self.pc.c].rolling(long_window).mean()
         self.historical_data.dropna(inplace=True)
         self.historical_data.reset_index(drop=True, inplace=True)
         return ma_names[0], ma_names[1]
@@ -45,13 +46,13 @@ class SignalGenerator:
         ma_short, ma_long = self._generate_moving_average_indicators(short_window, long_window)
         self.historical_data['holding'] = np.where(self.historical_data[ma_short] > self.historical_data[ma_long], 1, -1)
         self.historical_data['signal'] = np.where(self.historical_data['holding'] != self.historical_data['holding'].shift(1), self.historical_data['holding'], 0)
-        self.signals = self.historical_data[self.historical_data['signal'] != 0][['time', 'mid_c', 'signal']]
+        self.signals = self.historical_data[self.historical_data['signal'] != 0][['time', self.pc.c, 'signal']]
 
     def _generate_inside_bar_momentum_indicators(self):
-        self.historical_data['range_prev'] = (self.historical_data['mid_h'] - self.historical_data['mid_l']).shift(1)
-        self.historical_data['mid_h_prev'] = self.historical_data['mid_h'].shift(1)
-        self.historical_data['mid_l_prev'] = self.historical_data['mid_l'].shift(1)
-        self.historical_data['direction_prev'] = self.historical_data.apply(lambda row: 1 if row['mid_c'] > row['mid_o'] else -1, axis=1).shift(1)
+        self.historical_data['range_prev'] = (self.historical_data[self.pc.h] - self.historical_data[self.pc.l]).shift(1)
+        self.historical_data['mid_h_prev'] = self.historical_data[self.pc.h].shift(1)
+        self.historical_data['mid_l_prev'] = self.historical_data[self.pc.l].shift(1)
+        self.historical_data['direction_prev'] = self.historical_data.apply(lambda row: 1 if row[self.pc.c] > row[self.pc.o] else -1, axis=1).shift(1)
         self.historical_data.dropna(inplace=True)
         self.historical_data.reset_index(drop=True, inplace=True)
 
@@ -68,7 +69,7 @@ class SignalGenerator:
 
     def _generate_inside_bar_momentum_signals(self):
         self._generate_inside_bar_momentum_indicators()
-        self.historical_data['signal'] = self.historical_data.apply(lambda row: row['direction_prev'] if row['mid_h_prev'] > row['mid_h'] and row['mid_l_prev'] < row['mid_l'] else 0, axis=1)
+        self.historical_data['signal'] = self.historical_data.apply(lambda row: row['direction_prev'] if row['mid_h_prev'] > row[self.pc.h] and row['mid_l_prev'] < row[self.pc.l] else 0, axis=1)
         self.historical_data['entry_stop'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'entry_stop'), axis=1)
         self.historical_data['stop_loss'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'stop_loss'), axis=1)
         self.historical_data['take_profit'] = self.historical_data.apply(functools.partial(self._inside_bar_momentum_indicators, 'take_profit'), axis=1)
@@ -88,9 +89,9 @@ class SignalGenerator:
         if self.signals.empty:
             raise ValueError("Please generate signals before using this function.")
         if use_pips:
-            self.signals['gain'] = (self.signals['mid_c'].diff() / 10 ** self.pip_location).shift(-1)
+            self.signals['gain'] = (self.signals[self.pc.c].diff() / 10 ** self.pip_location).shift(-1)
         else:
-            self.signals['gain'] = self.signals['mid_c'].diff().shift(-1)
+            self.signals['gain'] = self.signals[self.pc.c].diff().shift(-1)
         self.signals['duration'] = self.signals['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
         return self.signals
 
@@ -116,7 +117,7 @@ class SignalGenerator:
             return self.signals
 
     # def evaluate_pair_returns(self):
-    #     self.historical_data['returns'] = self.historical_data['mid_c'] - self.historical_data['mid_c'].shift(1)
+    #     self.historical_data['returns'] = self.historical_data[self.pc.c] - self.historical_data[self.pc.c].shift(1)
     #     self.historical_data['log_returns'] = np.log(1 + self.historical_data['returns'])
     #     self.historical_data['log_returns'].plot(title='Log returns of {} currency pair'.format(self.pair), xlabel='Date', ylabel='Return', rot=45)
     #     plt.show()

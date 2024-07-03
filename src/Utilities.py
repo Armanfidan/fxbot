@@ -34,6 +34,20 @@ class Granularity(Enum):
     M = timedelta(days=30)
 
 
+class PriceType(Enum):
+    MID = 'mid'
+    ASK = 'ask'
+    BID = 'bid'
+
+
+class PriceColumns:
+    def __init__(self, price_type: PriceType):
+        self.o: str = '{}_o'.format(price_type.value)
+        self.h: str = '{}_h'.format(price_type.value)
+        self.l: str = '{}_l'.format(price_type.value)
+        self.c: str = '{}_c'.format(price_type.value)
+
+
 class Strategy(Enum):
     MA_CROSSOVER = 'Moving Average Crossover'
     INSIDE_BAR_MOMENTUM = 'Inside Bar Momentum'
@@ -84,9 +98,10 @@ def get_historical_data_filename(pair: str, granularity: Granularity, from_time:
                                                to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 
-def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
+def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, pc: PriceColumns) -> DataFrame:
     """
     Retrieves downloaded price data for a given pair and granularity, between 2 provided dates. Returns an empty DataFrame if no data is found.
+    :param pc: Ask, bid or mid.
     :param pair: Currency pair to retrieve data for
     :param granularity: Granularity to retrieve data for
     :param from_time: Start time to retrieve data from.
@@ -97,7 +112,7 @@ def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from
         candles = pd.read_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except FileNotFoundError:
         print("No historical data found for currency pair {} at granularity {}. Downloading...".format(pair, granularity.name))
-        return DataFrame(columns=['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c'])
+        return DataFrame(columns=['time', pc.o, pc.h, pc.l, pc.c])
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
     return candles

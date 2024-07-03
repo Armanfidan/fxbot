@@ -3,9 +3,12 @@ from typing import Literal, Dict, Any
 
 from pandas import Series
 
+from Utilities import PriceColumns
+
 
 class Trade:
-    def __init__(self, trade_row: Series):
+    def __init__(self, trade_row: Series, pc: PriceColumns):
+        self.pc: PriceColumns = pc
         # Currency pair.
         self.time: datetime = trade_row['time']
         self.signal: Literal[-1, 1] = trade_row['signal']
@@ -34,26 +37,26 @@ class Trade:
             self.check_entry(candle)
 
     def check_entry(self, candle: Series) -> bool:
-        buy_stop_reached: bool = self.signal == 1 and candle['mid_c'] >= self.entry_stop
-        sell_stop_reached: bool = self.signal == -1 and candle['mid_c'] <= self.entry_stop
+        buy_stop_reached: bool = self.signal == 1 and candle[self.pc.c] >= self.entry_stop
+        sell_stop_reached: bool = self.signal == -1 and candle[self.pc.c] <= self.entry_stop
         if not (buy_stop_reached or sell_stop_reached):
             return False
         self.entry_time = candle['time']
-        self.entry_price = candle['mid_c']
+        self.entry_price = candle[self.pc.c]
         self.__trade_is_open = True
         return True
 
     def close_trade(self, candle: Series):
         self.exit_time = candle['time']
-        self.exit_price = candle['mid_c']
+        self.exit_price = candle[self.pc.c]
         self.__trade_is_open = False
         # self.gain = self.exit_price - self.entry_price
 
     def check_exit(self, candle: Series) -> bool:
-        buy_stop_loss_reached: bool = self.signal == 1 and candle['mid_c'] <= self.stop_loss
-        sell_stop_loss_reached: bool = self.signal == -1 and candle['mid_c'] >= self.stop_loss
-        buy_take_profit_reached: bool = self.signal == 1 and candle['mid_c'] >= self.take_profit
-        sell_take_profit_reached: bool = self.signal == -1 and candle['mid_c'] <= self.take_profit
+        buy_stop_loss_reached: bool = self.signal == 1 and candle[self.pc.c] <= self.stop_loss
+        sell_stop_loss_reached: bool = self.signal == -1 and candle[self.pc.c] >= self.stop_loss
+        buy_take_profit_reached: bool = self.signal == 1 and candle[self.pc.c] >= self.take_profit
+        sell_take_profit_reached: bool = self.signal == -1 and candle[self.pc.c] <= self.take_profit
         if not self.__trade_is_open:
             return False
         trade_exited: bool = buy_take_profit_reached or buy_stop_loss_reached or sell_take_profit_reached or sell_stop_loss_reached

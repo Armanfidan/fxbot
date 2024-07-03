@@ -9,7 +9,7 @@ from pandas import DataFrame
 from math import isnan
 
 from Constants import INSTRUMENTS_FILENAME
-from DataFetcher import DataFetcher
+from client.DataClient import DataFetcher
 from PlotProperties import PlotProperties
 from StrategyResults import StrategyResults
 from Trade import Trade
@@ -24,7 +24,8 @@ else:
 
 
 class Simulator:
-    def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
+    def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, price_type: PriceType = PriceType.MID, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
+        self.pc: PriceColumns = PriceColumns(price_type)
         self.data_fetcher: DataFetcher = DataFetcher()
         self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
                                        else self.data_fetcher.get_instruments_and_save_to_file())
@@ -33,7 +34,7 @@ class Simulator:
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
 
     def get_price_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, use_only_downloaded_price_data: bool) -> DataFrame:
-        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
+        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time, self.pc)
         if price_data.size != 0:
             return price_data
         if use_only_downloaded_price_data:
@@ -113,7 +114,7 @@ class Simulator:
         for short_window, long_window in itertools.combinations(ma_windows, 2):
             if short_window >= long_window:
                 continue
-            signal_generator.generate_trades(short_window=short_window, long_window=long_window, use_pips=True)
+            signal_generator.generate_signals(short_window=short_window, long_window=long_window, use_pips=True)
             results.append(signal_generator.evaluate_strategy())
             # Save data to be plotted
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
@@ -130,7 +131,7 @@ class Simulator:
         if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
             raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
         signal_generator.generate_signals(use_pips=True)
-        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', 'mid_o', 'mid_h', 'mid_l', 'mid_c']]
+        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', self.pc.o, self.pc.h, self.pc.l, self.pc.c]]
         simulation_data = self.sort_and_reset(simulation_data)
 
         signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
@@ -141,7 +142,7 @@ class Simulator:
 
         non_materialised_trades: List[Dict[str, Any]] = []
         closed_trades: List[Dict[str, Any]] = []
-        current_trade: Trade | None = Trade(simulation_data.iloc[0])
+        current_trade: Trade | None = Trade(simulation_data.iloc[0], self.pc)
         closed_trade_already_saved: bool = False
 
         for index, row in simulation_data.iterrows():
@@ -156,7 +157,7 @@ class Simulator:
                 if current_trade.is_open():  # Check whether the previous trade is open.
                     current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
                     non_materialised_trades.append(vars(current_trade))
-                current_trade = Trade(row)  # Create a new trade from the current row.
+                current_trade = Trade(row, self.pc)  # Create a new trade from the current row.
                 closed_trade_already_saved = False  # New trade! Not already saved.
                 continue  # We don't want to update the trade (We just opened it), so skip the rest.
 
@@ -225,7 +226,7 @@ class Simulator:
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
             pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
-            signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, trade_granularity, price_data, self.strategy)
+            signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, trade_granularity, price_data, self.pc, self.strategy)
 
             if self.strategy == Strategy.MA_CROSSOVER:
                 self.simulate_ma_crossover_strategy(ma_windows, pair, results, signal_generator)
