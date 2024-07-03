@@ -8,7 +8,8 @@ import pandas as pd
 from pandas import DataFrame
 
 from Constants import OANDA_DEMO_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_DEMO_ACCOUNT_ID
-from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, Granularity
+from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file
+from Granularity import Granularity
 
 MAX_CANDLESTICKS: int = 5000
 
@@ -72,7 +73,7 @@ class DataFetcher:
         save_candles_to_file(candles, pair, granularity, from_time, to_time)
         return candles
 
-    def get_price(self, pair: str) -> Dict[str, float]:
+    def get_price(self, pair: str) -> Dict[str, datetime | float]:
         """
         For a given pair, returns the latest ask, bid and mid prices, as well as the timestamp.
         :param pair: Currency pair to get the latest price for.

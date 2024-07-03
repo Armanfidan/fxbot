@@ -4,7 +4,7 @@ from typing import Literal, List
 from pandas import DataFrame, Series
 from plotly import graph_objects as go
 
-from Utilities import PriceColumns
+from PriceColumns import PriceColumns
 
 
 class CandlePlotter:

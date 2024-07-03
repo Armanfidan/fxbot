@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-from enum import Enum
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -7,50 +6,8 @@ import pandas as pd
 from pandas import DataFrame
 
 from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER
-
-
-class Granularity(Enum):
-    S5 = timedelta(seconds=5)
-    S10 = timedelta(seconds=10)
-    S15 = timedelta(seconds=15)
-    S30 = timedelta(seconds=30)
-    M1 = timedelta(minutes=1)
-    M2 = timedelta(minutes=2)
-    M3 = timedelta(minutes=3)
-    M4 = timedelta(minutes=4)
-    M5 = timedelta(minutes=5)
-    M10 = timedelta(minutes=10)
-    M15 = timedelta(minutes=15)
-    M30 = timedelta(minutes=30)
-    H1 = timedelta(hours=1)
-    H2 = timedelta(hours=2)
-    H3 = timedelta(hours=3)
-    H4 = timedelta(hours=4)
-    H6 = timedelta(hours=6)
-    H8 = timedelta(hours=8)
-    H12 = timedelta(hours=12)
-    D = timedelta(days=1)
-    W = timedelta(weeks=1)
-    M = timedelta(days=30)
-
-
-class PriceType(Enum):
-    MID = 'mid'
-    ASK = 'ask'
-    BID = 'bid'
-
-
-class PriceColumns:
-    def __init__(self, price_type: PriceType):
-        self.o: str = '{}_o'.format(price_type.value)
-        self.h: str = '{}_h'.format(price_type.value)
-        self.l: str = '{}_l'.format(price_type.value)
-        self.c: str = '{}_c'.format(price_type.value)
-
-
-class Strategy(Enum):
-    MA_CROSSOVER = 'Moving Average Crossover'
-    INSIDE_BAR_MOMENTUM = 'Inside Bar Momentum'
+from Granularity import Granularity
+from PriceColumns import PriceColumns
 
 
 def flatten_candle(candle: Dict[str, Any]):

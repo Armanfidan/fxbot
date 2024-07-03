@@ -14,7 +14,11 @@ from PlotProperties import PlotProperties
 from StrategyResults import StrategyResults
 from Trade import Trade
 from service.SignalGenerator import SignalGenerator
-from Utilities import Strategy, get_downloaded_price_data_for_pair, Granularity, PriceType, PriceColumns
+from Utilities import get_downloaded_price_data_for_pair
+from Granularity import Granularity
+from Strategy import Strategy
+from PriceColumns import PriceColumns
+from PriceType import PriceType
 from CandlePlotter import CandlePlotter
 
 if sys.version_info < (3, 8):

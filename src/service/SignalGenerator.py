@@ -8,7 +8,9 @@ import seaborn as sns
 from pandas import DataFrame
 
 from StrategyResults import StrategyResults
-from Utilities import Strategy, Granularity, PriceColumns
+from Granularity import Granularity
+from Strategy import Strategy
+from PriceColumns import PriceColumns
 
 pd.options.mode.chained_assignment = None
 sns.set_theme()

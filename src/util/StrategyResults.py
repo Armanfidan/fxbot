@@ -1,7 +1,7 @@
 from typing import Dict, Any, Tuple
 from pandas import DataFrame
 
-from Utilities import Strategy
+from Strategy import Strategy
 
 
 class StrategyResults:

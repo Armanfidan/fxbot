@@ -2,7 +2,9 @@ from datetime import datetime
 
 from PlotProperties import PlotProperties
 from Simulator import Simulator
-from Utilities import Strategy, Granularity, PriceType
+from Granularity import Granularity
+from Strategy import Strategy
+from PriceType import PriceType
 from client.TradeClient import Trader
 
 

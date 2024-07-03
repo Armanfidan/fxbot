@@ -3,7 +3,7 @@ from typing import Literal, Dict, Any
 
 from pandas import Series
 
-from Utilities import PriceColumns
+from PriceColumns import PriceColumns
 
 
 class Trade:
