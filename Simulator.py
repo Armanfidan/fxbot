@@ -8,14 +8,14 @@ from pandas import DataFrame
 
 from math import isnan
 
-import constants
-from dataFetcher import DataFetcher
-from plotProperties import PlotProperties
-from strategyResults import StrategyResults
-from trade import Trade
-from signalGenerator import SignalGenerator
-from utilities import Strategy, get_downloaded_price_data_for_pair, Granularity
-from plot_candles import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
+from Constants import INSTRUMENTS_FILENAME
+from DataFetcher import DataFetcher
+from PlotProperties import PlotProperties
+from StrategyResults import StrategyResults
+from Trade import Trade
+from SignalGenerator import SignalGenerator
+from Utilities import Strategy, get_downloaded_price_data_for_pair, Granularity
+from CandlePlotter import plot_candles_for_ma_crossover, plot_candles_for_inside_bar_momentum
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal
@@ -26,7 +26,7 @@ else:
 class Simulator:
     def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
         self.data_fetcher: DataFetcher = DataFetcher()
-        self.instruments: DataFrame = (pd.read_pickle(constants.INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
+        self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
                                        else self.data_fetcher.get_instruments_and_save_to_file())
         self.strategy: Strategy = strategy
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting

@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import pandas as pd
 from pandas import DataFrame
 
-import constants
+from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER
 
 
 class Granularity(Enum):
@@ -58,7 +58,7 @@ def save_instruments_to_file(instruments: DataFrame):
     :param instruments: DF containing candles.
     """
     try:
-        instruments.to_pickle(constants.INSTRUMENTS_FILENAME)
+        instruments.to_pickle(INSTRUMENTS_FILENAME)
     except Exception as e:
         raise IOError("Could not save instruments to file. Error: {}".format(e))
 
@@ -73,14 +73,14 @@ def save_candles_to_file(candles: DataFrame, pair: str, granularity: Granularity
     :param granularity: Granularity of the candles.
     """
     try:
-        Path(constants.CANDLE_FOLDER).mkdir(parents=True, exist_ok=True)
+        Path(CANDLE_FOLDER).mkdir(parents=True, exist_ok=True)
         candles.to_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except Exception as e:
         raise IOError("Could not save candles to file. Error: {}".format(e))
 
 
 def get_historical_data_filename(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> str:
-    return '{}/{}_{}_from_{}_to_{}.pkl'.format(constants.CANDLE_FOLDER, pair, granularity.name, from_time.strftime("%Y-%m-%dT%H-%M-%S"),
+    return '{}/{}_{}_from_{}_to_{}.pkl'.format(CANDLE_FOLDER, pair, granularity.name, from_time.strftime("%Y-%m-%dT%H-%M-%S"),
                                                to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 

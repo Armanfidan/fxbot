@@ -1,13 +1,12 @@
 from datetime import datetime
 
-from dataFetcher import DataFetcher
-from plotProperties import PlotProperties
-from simulator import Simulator
-from utilities import Strategy, Granularity
+from PlotProperties import PlotProperties
+from Simulator import Simulator
+from Utilities import Strategy, Granularity
+from Trader import Trader
 
-if __name__ == '__main__':
-    data_fetcher = DataFetcher()
 
+def simulate_pairs():
     currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
     # currencies = ['EUR', 'USD', 'GBP']
     # currencies = ['EUR', 'USD', 'GBP']
@@ -33,3 +32,9 @@ if __name__ == '__main__':
         file_type='csv'
     )
     simulator.plot_results_for_selected_data()
+
+
+if __name__ == '__main__':
+    # simulate_pairs()
+    trader = Trader()
+    trader.place_market_order('EUR_USD', 100000, 'FOK', 1)

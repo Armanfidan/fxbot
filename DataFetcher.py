@@ -7,8 +7,8 @@ import v20
 import pandas as pd
 from pandas import DataFrame
 
-import constants
-from utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, Granularity
+from Constants import OANDA_HOSTNAME, OANDA_API_KEY, OANDA_ACCOUNT_ID
+from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, Granularity
 
 MAX_CANDLESTICKS: int = 5000
 
@@ -16,8 +16,8 @@ MAX_CANDLESTICKS: int = 5000
 class DataFetcher:
     def __init__(self):
         self.api = v20.Context(
-            hostname=constants.OANDA_HOSTNAME,
-            token=constants.OANDA_API_KEY,
+            hostname=OANDA_HOSTNAME,
+            token=OANDA_API_KEY,
             datetime_format='UNIX'
         )
 
@@ -61,7 +61,7 @@ class DataFetcher:
         Retrieves the instruments from the OANDA API and saves them to a file.
         :return: The instruments DataFrame.
         """
-        response: v20.response = self.api.account.instruments(constants.OANDA_ACCOUNT_ID)
+        response: v20.response = self.api.account.instruments(OANDA_ACCOUNT_ID)
         instruments = DataFrame([vars(instrument) for instrument in response.body['instruments']])
         save_instruments_to_file(instruments)
         return instruments
@@ -71,3 +71,10 @@ class DataFetcher:
         print("Loaded {} candles for pair {}, from {} to {}".format(candles.shape[0], pair, candles['time'].min(), candles['time'].max()))
         save_candles_to_file(candles, pair, granularity, from_time, to_time)
         return candles
+
+    def get_price(self, pair: str):
+        response: v20.response = self.api.instrument.price(pair)
+        if response.status != 200:
+            raise HTTPException(
+                "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
+        return float(response.body['price'])

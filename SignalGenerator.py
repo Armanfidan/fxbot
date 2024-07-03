@@ -7,8 +7,8 @@ import seaborn as sns
 
 from pandas import DataFrame
 
-from strategyResults import StrategyResults
-from utilities import Strategy, Granularity
+from StrategyResults import StrategyResults
+from Utilities import Strategy, Granularity
 
 pd.options.mode.chained_assignment = None
 sns.set_theme()
