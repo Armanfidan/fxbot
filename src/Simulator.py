@@ -9,7 +9,7 @@ from pandas import DataFrame
 from math import isnan
 
 from Constants import INSTRUMENTS_FILENAME
-from client.DataClient import DataFetcher
+from client.DataClient import DataClient
 from PlotProperties import PlotProperties
 from StrategyResults import StrategyResults
 from Trade import Trade
@@ -30,7 +30,7 @@ else:
 class Simulator:
     def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, price_type: PriceType = PriceType.MID, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
         self.pc: PriceColumns = PriceColumns(price_type)
-        self.data_fetcher: DataFetcher = DataFetcher()
+        self.data_fetcher: DataClient = DataClient()
         self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
                                        else self.data_fetcher.get_instruments_and_save_to_file())
         self.strategy: Strategy = strategy

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict
@@ -24,3 +25,6 @@ class Candle:
     @staticmethod
     def from_dict(candle_dict: Dict[str, datetime | float]):
         return Candle(**candle_dict)  # TODO: Check all fields, make sure no extra
+
+    def __str__(self):
+        return json.dumps(filter(lambda var: var is not None, vars(self)))

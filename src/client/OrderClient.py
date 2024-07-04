@@ -11,7 +11,7 @@ from Order import TakeProfitOrder, StopLossOrder, TrailingStopLossOrder
 MAX_CANDLESTICKS: int = 5000
 
 
-class Trader:
+class OrderClient:
     def __init__(self):
         self.api = v20.Context(
             hostname=OANDA_DEMO_HOSTNAME,

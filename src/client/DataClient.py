@@ -14,7 +14,7 @@ from Granularity import Granularity
 MAX_CANDLESTICKS: int = 5000
 
 
-class DataFetcher:
+class DataClient:
     def __init__(self):
         self.api = v20.Context(
             hostname=OANDA_DEMO_HOSTNAME,

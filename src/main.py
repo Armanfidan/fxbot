@@ -5,7 +5,7 @@ from Simulator import Simulator
 from Granularity import Granularity
 from Strategy import Strategy
 from PriceType import PriceType
-from client.TradeClient import Trader
+from client.OrderClient import OrderClient
 
 
 def simulate_pairs():
@@ -23,12 +23,12 @@ def simulate_pairs():
         from_time=datetime(2024, 4, 1),
         to_time=datetime.now()
     )
-    simulator = Simulator(use_downloaded_currency_pairs=True, strategy=Strategy.INSIDE_BAR_MOMENTUM, price_type=PriceType.ASK, data_range_for_plotting=data_range_for_plotting)
+    simulator = Simulator(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, price_type=PriceType.ASK, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
         trade_granularity=Granularity.H4,
         simulation_granularity=Granularity.M5,
-        use_only_downloaded_price_data=True,
+        use_only_downloaded_price_data=False,
         from_time=datetime(2020, 1, 1),
         to_time=datetime(2024, 6, 28, 20, 59, 14),
         file_type='csv'
@@ -37,6 +37,6 @@ def simulate_pairs():
 
 
 if __name__ == '__main__':
-    simulate_pairs()
-    # trader = Trader()
-    # trader.place_market_order('EUR_USD', 100000, 'FOK', 1)
+    # simulate_pairs()
+    trader = OrderClient()
+    trader.place_market_order('EUR_USD', 100000, 'FOK', 1)
