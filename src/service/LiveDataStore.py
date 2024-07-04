@@ -8,20 +8,18 @@ from Candle import Candle
 from CandleGenerator import CandleGenerator
 from Granularity import Granularity
 from Price import Price
-from PriceColumns import PriceColumns
 from client.DataClient import DataClient
 
 
 class LiveDataStore:
-    def __init__(self, pair: str, candlestick_granularity: Granularity, price_granularity: Granularity, pc: PriceColumns):
+    def __init__(self, pair: str, candlestick_granularity: Granularity, price_granularity: Granularity):
         print("Initialising LiveDataStore for pair {}, candlestick granularity {} and price granularity {}".format(pair, candlestick_granularity.name, price_granularity.name))
         self.pair: str = pair
         self.candlestick_granularity: Granularity = candlestick_granularity
         self.price_granularity: Granularity = price_granularity
-        self.pc: PriceColumns = pc
 
         self.data_client: DataClient = DataClient(live=True)
-        self.candle_generator: CandleGenerator = CandleGenerator(pair, candlestick_granularity, price_granularity, pc)
+        self.candle_generator: CandleGenerator = CandleGenerator(pair, candlestick_granularity)
 
         self.connection: pika.BlockingConnection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()

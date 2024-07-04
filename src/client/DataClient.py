@@ -96,9 +96,10 @@ class DataClient:
         ask: float = float(response.body['prices'][0].asks[0].price)
         bid: float = float(response.body['prices'][0].bids[0].price)
         mid: float = (ask + bid) / 2
-        time: datetime = datetime.fromtimestamp(float(response.body['prices'][0].time))
-        return {'ask': ask, 'bid': bid, 'mid': mid, 'time': time}
+        candle_time: datetime = datetime.fromtimestamp(float(response.body['prices'][0].time))
+        return {'ask': ask, 'bid': bid, 'mid': mid, 'time': candle_time}
 
+    # TODO: Implement this. Retrieve the latest candle rather than generating it yourself. This will be much more accurate.
     # def get_latest_candle(self, pair: str, granularity: Granularity, price_type: PriceType) -> Dict[str, datetime | float]:
     #     """
     #     For a given pair, returns the latest candle, given the granularity and price type.
