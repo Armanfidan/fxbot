@@ -43,7 +43,7 @@ class CandleGenerator:
             self.candle_dict[self.pc.l] = price_value
         self.num_prices_accumulated += 1
 
-    def generate(self, price: Price) -> Candle:
+    def generate(self, price: Price) -> Candle | None:
         """
         Takes in a price and updates the candle.
         If the required candlestick granularity has been reached, yields a candle.
@@ -57,5 +57,7 @@ class CandleGenerator:
             self.__initialise_candle(price)
         if self.num_prices_accumulated >= self.num_prices_required:
             self.candle_dict[self.pc.c] = price_value
-            yield Candle.from_dict(self.candle_dict)
+            candle_dict: dict = self.candle_dict
             self.candle_dict = None
+            return Candle.from_dict(candle_dict)
+        return None

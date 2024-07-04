@@ -27,4 +27,15 @@ class Candle:
         return Candle(**candle_dict)  # TODO: Check all fields, make sure no extra
 
     def __str__(self):
-        return json.dumps(filter(lambda var: var is not None, vars(self)))
+        non_null_vars = {key: value for key, value in vars(self).items() if value is not None}
+        non_null_vars['time'] = self.time.timestamp()
+        return json.dumps(non_null_vars)
+
+    def serialise(self):
+        return self.__str__()
+
+    @staticmethod
+    def deserialise(candle_json: str):
+        candle_dict: Dict = json.loads(candle_json)
+        candle_dict['time'] = datetime.fromtimestamp(candle_dict['time'])
+        return Candle(**candle_dict)

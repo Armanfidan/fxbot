@@ -42,5 +42,5 @@ if __name__ == '__main__':
     # simulate_pairs()
     # order_client = OrderClient()
     # order_client.place_market_order('EUR_USD', 100000, 'FOK', 1)
-    live_data_store = LiveDataStore('EUR_USD', Granularity.M1, Granularity.S5, PriceColumns(PriceType.ASK))
+    live_data_store = LiveDataStore('EUR_USD', Granularity.S15, Granularity.S5, PriceColumns(PriceType.ASK))
     live_data_store.start()

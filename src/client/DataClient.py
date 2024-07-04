@@ -79,9 +79,27 @@ class DataClient:
         :param pair: Currency pair to get the latest price for.
         :return: A dictionary containing the ask, bid and mid prices and the timestamp.
         """
-        response: v20.response = self.api.instrument.price(pair)
+        response: v20.response = self.api.pricing.get(OANDA_DEMO_ACCOUNT_ID, instruments=pair)
         if response.status != 200:
             raise HTTPException(
                 "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
-        prices = response.body['price']
-        return {price_type: float(price) for price_type, price in prices.items()}
+        ask: float = float(response.body['prices'][0].asks[0].price)
+        bid: float = float(response.body['prices'][0].bids[0].price)
+        mid: float = (ask + bid) / 2
+        time: datetime = datetime.fromtimestamp(float(response.body['prices'][0].time))
+        return {'ask': ask, 'bid': bid, 'mid': mid, 'time': time}
+
+    # def get_latest_candle(self, pair: str, granularity: Granularity, price_type: PriceType) -> Dict[str, datetime | float]:
+    #     """
+    #     For a given pair, returns the latest candle, given the granularity and price type.
+    #     :param price_type: Ask, bid or mid.
+    #     :param granularity: Granularity of the latest candlestick to fetch.
+    #     :param pair: Currency pair to get the latest price for.
+    #     :return: A dictionary containing the latest candle.
+    #     """
+    #     response: v20.response = self.api.pricing.candles()
+    #     if response.status != 200:
+    #         raise HTTPException(
+    #             "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
+    #     prices = response.body['price']
+    #     return {price_type: float(price) for price_type, price in prices.items()}

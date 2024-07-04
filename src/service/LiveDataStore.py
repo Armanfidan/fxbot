@@ -38,6 +38,8 @@ class LiveDataStore:
         if candle:
             self.channel.basic_publish(exchange='', routing_key=self.channel_name, body=str(candle))
             print("{}: Candle published, timestamp: {}".format(self.pair, candle.time.strftime("%Y-%m-%d %H:%M:%S")))
+        else:
+            print("No candle yet. Price: {}".format(price))
 
     def start(self):
         try:
