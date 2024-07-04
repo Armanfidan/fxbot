@@ -97,6 +97,7 @@ class SignalGenerator:
         self.signals['duration'] = self.signals['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
         return self.signals
 
+    # TODO: Add a way to generate a signal for only the last candle. Rethink this for live trading - don't use a DataFrame.
     def generate_signals(self, use_pips: bool, **kwargs) -> DataFrame:
         """
         Generate signals based on a pre-defined strategy.

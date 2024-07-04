@@ -42,12 +42,12 @@ def simulate_pairs():
 
 
 def start_live_data_store(_pair: str, _candlestick_granularity: Granularity, _price_granularity: Granularity):
-    live_data_store = LiveDataStore(_pair, _candlestick_granularity, _price_granularity, PriceColumns(PriceType.MID))
+    live_data_store = LiveDataStore(_pair, _candlestick_granularity, _price_granularity)
     live_data_store.start()
 
 
-def start_live_trader(_pair: str, _strategy: Strategy, _granularity: Granularity, _live: bool, _historical_data_start_time: datetime, _strategy_params: Dict | None):
-    live_trader = LiveTrader(_pair, _strategy, _granularity, _live, _historical_data_start_time, _strategy_params)
+def start_live_trader(_pair: str, _strategy: Strategy, _granularity: Granularity, _live: bool, _historical_data_start_time: datetime, _order_units: int, _strategy_params: Dict | None):
+    live_trader = LiveTrader(_pair, _strategy, _granularity, _live, _historical_data_start_time, _order_units, _strategy_params)
     live_trader.start()
 
 
@@ -58,9 +58,10 @@ if __name__ == '__main__':
     strategy: Strategy = Strategy.MA_CROSSOVER
     strategy_params: Dict | None = {'short_window': 16, 'long_window': 64}
     live: bool = False
+    order_units: int = 100000
     historical_data_start_time: datetime = datetime.now() - timedelta(days=1)
     live_data_store_process: Process = Process(target=start_live_data_store, args=(pair, candlestick_granularity, price_granularity))
-    live_trader_process: Process = Process(target=start_live_trader, args=(pair, strategy, candlestick_granularity, live, historical_data_start_time, strategy_params))
+    live_trader_process: Process = Process(target=start_live_trader, args=(pair, strategy, candlestick_granularity, live, historical_data_start_time, order_units, strategy_params))
     live_data_store_process.start()
     live_trader_process.start()
     live_data_store_process.join()

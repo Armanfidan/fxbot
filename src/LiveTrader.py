@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Dict
 
@@ -15,13 +16,14 @@ from Strategy import Strategy
 
 
 class LiveTrader:
-    def __init__(self, pair: str, strategy: Strategy, granularity: Granularity, live: bool, historical_data_start_time: datetime, strategy_params: Dict | None = None):
+    def __init__(self, pair: str, strategy: Strategy, granularity: Granularity, live: bool, historical_data_start_time: datetime, order_units: int, strategy_params: Dict | None = None):
         print("Initializing LiveTrader for pair {}, strategy {} and granularity {}.".format(pair, strategy, granularity))
         print("Collecting initial data from {}.".format(historical_data_start_time.strftime("%Y-%m-%d %H:%M:%S")))
         print("############# CAUTION: TRADING LIVE. #############" if live else "Demo trading mode.")
         if strategy_params is None:
             strategy_params = {}
         self.strategy_params: Dict = strategy_params
+        self.order_units: int = order_units
         self.pair: str = pair
         self.strategy: Strategy = strategy
         self.granularity: Granularity = granularity
@@ -39,8 +41,13 @@ class LiveTrader:
 
     def consume_candle(self, ch, method, properties, body):
         print("Candle consumed: {}".format(body))
-        # order_client = OrderClient()
-        # order_client.place_market_order('EUR_USD', 100000, 'FOK', 1)
+        candle_dict: Dict = json.loads(body)
+        candle_dict['volume'] = 1
+        self.candles.loc[-1] = candle_dict
+        self.candles = self.candles.iloc[1:]
+        self.candles.reset_index(inplace=True)
+        # TODO: Add support for limit orders and stop orders
+        self.order_client.place_market_order(self.pair, self.order_units, 'FOK', 1)
 
     def iterate(self):
         pass
