@@ -20,7 +20,7 @@ class LiveDataStore:
         self.price_granularity: Granularity = price_granularity
         self.pc: PriceColumns = pc
 
-        self.data_fetcher: DataClient = DataClient()
+        self.data_fetcher: DataClient = DataClient(live=True)
         self.candle_generator: CandleGenerator = CandleGenerator(pair, candlestick_granularity, price_granularity, pc)
 
         self.connection: pika.BlockingConnection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
