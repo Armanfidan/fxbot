@@ -7,7 +7,8 @@ import v20
 import pandas as pd
 from pandas import DataFrame
 
-from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID
+from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, \
+    INSTRUMENTS_FILENAME
 from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file
 from Granularity import Granularity
 
@@ -67,6 +68,14 @@ class DataClient:
         instruments = DataFrame([vars(instrument) for instrument in response.body['instruments']])
         save_instruments_to_file(instruments)
         return instruments
+
+    @staticmethod
+    def get_pip_location(pair: str) -> float:
+        try:
+            instruments: DataFrame = pd.read_pickle(INSTRUMENTS_FILENAME)
+        except IOError:
+            raise IOError("Instruments file could not be found. Please first retrieve account instruments using get_instruments_and_save_to_file().")
+        return float(instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
 
     def create_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime = datetime.now()) -> DataFrame:
         candles: DataFrame = self.get_candles_for_pair(pair=pair, granularity=granularity, from_time=from_time, to_time=to_time)

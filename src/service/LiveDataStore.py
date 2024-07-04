@@ -20,7 +20,7 @@ class LiveDataStore:
         self.price_granularity: Granularity = price_granularity
         self.pc: PriceColumns = pc
 
-        self.data_fetcher: DataClient = DataClient(live=True)
+        self.data_client: DataClient = DataClient(live=True)
         self.candle_generator: CandleGenerator = CandleGenerator(pair, candlestick_granularity, price_granularity, pc)
 
         self.connection: pika.BlockingConnection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
@@ -33,7 +33,7 @@ class LiveDataStore:
         return self.channel_name
 
     def publish_candle(self):
-        price: Price = Price.from_dict(self.data_fetcher.get_price(self.pair))
+        price: Price = Price.from_dict(self.data_client.get_price(self.pair))
         candle: Candle = self.candle_generator.generate(price)
         if candle:
             self.channel.basic_publish(exchange='', routing_key=self.channel_name, body=str(candle))

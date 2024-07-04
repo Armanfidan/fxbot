@@ -30,9 +30,9 @@ else:
 class Simulator:
     def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, price_type: PriceType = PriceType.MID, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
         self.pc: PriceColumns = PriceColumns(price_type)
-        self.data_fetcher: DataClient = DataClient(live=False)
+        self.data_client: DataClient = DataClient(live=False)
         self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
-                                       else self.data_fetcher.get_instruments_and_save_to_file())
+                                       else self.data_client.get_instruments_and_save_to_file())
         self.strategy: Strategy = strategy
         self.data_range_for_plotting: PlotProperties = data_range_for_plotting
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
@@ -43,7 +43,7 @@ class Simulator:
             return price_data
         if use_only_downloaded_price_data:
             raise IOError("No price data found for pair '{}'. Skipping pair - please enable \"use_only_downloaded_data\".".format(pair))
-        return self.data_fetcher.create_data_for_pair(pair, granularity, from_time, to_time)
+        return self.data_client.create_data_for_pair(pair, granularity, from_time, to_time)
 
     def get_price_data_for_all_combinations_of_currencies(self,
                                                           currencies: List[str],
