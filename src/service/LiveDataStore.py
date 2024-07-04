@@ -14,6 +14,7 @@ from client.DataClient import DataClient
 
 class LiveDataStore:
     def __init__(self, pair: str, candlestick_granularity: Granularity, price_granularity: Granularity, pc: PriceColumns):
+        print("Initialising LiveDataStore for pair {}, candlestick granularity {} and price granularity {}".format(pair, candlestick_granularity.name, price_granularity.name))
         self.pair: str = pair
         self.candlestick_granularity: Granularity = candlestick_granularity
         self.price_granularity: Granularity = price_granularity
@@ -26,6 +27,10 @@ class LiveDataStore:
         self.channel: pika.adapters.blocking_connection.BlockingChannel = self.connection.channel()
         self.channel_name: str = '{}_LIVE_CANDLES'.format(self.pair)
         self.channel.queue_declare(queue=self.channel_name)
+        print("Created queue {}".format(self.channel_name))
+
+    def get_channel_name(self) -> str:
+        return self.channel_name
 
     def publish_candle(self):
         price: Price = Price.from_dict(self.data_fetcher.get_price(self.pair))

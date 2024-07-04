@@ -1,6 +1,8 @@
 from datetime import datetime
 
+from LiveDataStore import LiveDataStore
 from PlotProperties import PlotProperties
+from PriceColumns import PriceColumns
 from Simulator import Simulator
 from Granularity import Granularity
 from Strategy import Strategy
@@ -38,5 +40,7 @@ def simulate_pairs():
 
 if __name__ == '__main__':
     # simulate_pairs()
-    trader = OrderClient()
-    trader.place_market_order('EUR_USD', 100000, 'FOK', 1)
+    # order_client = OrderClient()
+    # order_client.place_market_order('EUR_USD', 100000, 'FOK', 1)
+    live_data_store = LiveDataStore('EUR_USD', Granularity.M1, Granularity.S5, PriceColumns(PriceType.ASK))
+    live_data_store.start()

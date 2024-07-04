@@ -82,6 +82,6 @@ class DataClient:
         response: v20.response = self.api.instrument.price(pair)
         if response.status != 200:
             raise HTTPException(
-                "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
+                "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
         prices = response.body['price']
         return {price_type: float(price) for price_type, price in prices.items()}

@@ -8,7 +8,7 @@ def callback(ch, method, properties, body):
 if __name__ == '__main__':
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     channel = connection.channel()
-    channel.basic_consume(queue='candles',
+    channel.basic_consume(queue='EUR_USD_LIVE_CANDLES',
                           auto_ack=True,
                           on_message_callback=callback)
     print(' [*] Waiting for messages. To exit press CTRL+C')
