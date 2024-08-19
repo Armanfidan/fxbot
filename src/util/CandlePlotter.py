@@ -4,12 +4,11 @@ from typing import Literal, List
 from pandas import DataFrame, Series
 from plotly import graph_objects as go
 
-from PriceColumns import PriceColumns
+from CandleDefinitions import Price
 
 
 class CandlePlotter:
-    def __init__(self, candles: DataFrame, pc: PriceColumns, from_time: datetime = None, to_time: datetime = None):
-        self.pc: PriceColumns = pc
+    def __init__(self, candles: DataFrame, from_time: datetime = None, to_time: datetime = None):
         self.candles: DataFrame = candles
         if from_time:
             self.candles = self.candles[from_time < self.candles['time']]
@@ -21,7 +20,7 @@ class CandlePlotter:
         buy: bool = signal_type == 'buy'
         self.fig.add_trace(go.Scatter(mode='markers',
                                       x=self.candles[self.candles['signal'] == (1 if buy else -1)]['time'],
-                                      y=self.candles[self.candles['signal'] == (1 if buy else -1)][self.pc.c],
+                                      y=self.candles[self.candles['signal'] == (1 if buy else -1)][Price.ASK_CLOSE.value if buy else Price.BID_CLOSE.value],
                                       marker=dict(symbol='arrow-{}'.format('up' if buy else 'down'),
                                                   size=20,
                                                   color='#579773' if buy else '#eb5242',
@@ -43,7 +42,7 @@ class CandlePlotter:
         entry_times: Series = self.candles[self.candles['entry_time'].notna()]['entry_time']
         self.fig.add_trace(go.Scatter(mode='markers',
                                       x=entry_times,
-                                      y=self.candles[self.candles['time'].isin(entry_times)][self.pc.c],
+                                      y=self.candles[self.candles['time'].isin(entry_times)][Price.MID_CLOSE.value],
                                       marker=dict(color=entry_colours[0], size=12),
                                       name='Entry'))
 
@@ -52,12 +51,12 @@ class CandlePlotter:
         stop_loss_times = exit_times_and_gains[exit_times_and_gains['gain'] <= 0]['exit_time']
         self.fig.add_trace(go.Scatter(mode='markers',
                                       x=exit_times,
-                                      y=self.candles[self.candles['time'].isin(exit_times)][self.pc.c],
+                                      y=self.candles[self.candles['time'].isin(exit_times)][Price.MID_CLOSE.value],
                                       marker=dict(color=entry_colours[2], size=12),
                                       name='Exit'))
         self.fig.add_trace(go.Scatter(mode='markers',
                                       x=stop_loss_times,
-                                      y=self.candles[self.candles['time'].isin(stop_loss_times)][self.pc.c],
+                                      y=self.candles[self.candles['time'].isin(stop_loss_times)][Price.MID_CLOSE.value],
                                       marker=dict(color=entry_colours[1], size=12),
                                       name='Stop Loss'))
 
@@ -72,10 +71,10 @@ class CandlePlotter:
         fig = go.Figure(layout_title_text=title)
         fig.add_trace(go.Candlestick(
             x=self.candles['time'],
-            open=self.candles[self.pc.o],
-            high=self.candles[self.pc.h],
-            low=self.candles[self.pc.l],
-            close=self.candles[self.pc.c],
+            open=self.candles[Price.MID_OPEN.value],
+            high=self.candles[Price.MID_HIGH.value],
+            low=self.candles[Price.MID_LOW.value],
+            close=self.candles[Price.MID_CLOSE.value],
             name='Prices'))
         fig.update_layout(font=dict(size=10, color="#e1e1e1"),
                           paper_bgcolor="#1e1e1e",

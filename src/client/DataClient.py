@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import time
 from http.client import HTTPException
@@ -9,7 +11,7 @@ from pandas import DataFrame
 
 from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, \
     INSTRUMENTS_FILENAME
-from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file
+from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
 from Granularity import Granularity
 
 MAX_CANDLESTICKS: int = 5000
@@ -34,9 +36,9 @@ class DataClient:
             raise HTTPException(
                 "Cannot get candlesticks for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
         candles: DataFrame = DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
-        columns: List = list(set(candles.columns) - {'time', 'volume'})
-        candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
-        candles.rename(columns={col: col.replace('.', '_') for col in columns}, inplace=True)
+        economic_columns: List = list(set(candles.columns) - {'time', 'volume'})
+        candles[economic_columns] = candles[economic_columns].apply(pd.to_numeric, errors='coerce')
+        candles.rename(columns={col: col.replace('.', '_') for col in economic_columns}, inplace=True)
         candles['time'] = pd.to_datetime(pd.to_numeric(candles['time']), unit='s')
         return candles, candles.iloc[-1]['time']
 
@@ -80,6 +82,8 @@ class DataClient:
     def create_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime = datetime.now()) -> DataFrame:
         candles: DataFrame = self.get_candles_for_pair(pair=pair, granularity=granularity, from_time=from_time, to_time=to_time)
         print("Loaded {} candles for pair {}, from {} to {}".format(candles.shape[0], pair, candles['time'].min(), candles['time'].max()))
+        if not validate_candles_df(candles):
+            raise AssertionError("The candles DataFrame does not match the required schema:", )
         save_candles_to_file(candles, pair, granularity, from_time, to_time)
         return candles
 

@@ -1,13 +1,11 @@
-from datetime import datetime
 from time import sleep
-from typing import Dict
 
 import pika
 
 from Candle import Candle
 from CandleGenerator import CandleGenerator
 from Granularity import Granularity
-from Price import Price
+from Quote import Quote
 from client.DataClient import DataClient
 
 
@@ -31,7 +29,7 @@ class LiveDataStore:
         return self.channel_name
 
     def publish_candle(self):
-        price: Price = Price.from_dict(self.data_client.get_price(self.pair))
+        price: Quote = Quote.from_dict(self.data_client.get_price(self.pair))
         candle: Candle = self.candle_generator.generate(price)
         if candle:
             self.channel.basic_publish(exchange='', routing_key=self.channel_name, body=str(candle))

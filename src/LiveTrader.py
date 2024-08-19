@@ -2,15 +2,12 @@ import json
 from datetime import datetime
 from typing import Dict
 
-import pandas as pd
 import pika
 from pandas import DataFrame
 
 from DataClient import DataClient
 from Granularity import Granularity
 from OrderClient import OrderClient
-from PriceColumns import PriceColumns
-from PriceType import PriceType
 from SignalGenerator import SignalGenerator
 from Strategy import Strategy
 
@@ -31,7 +28,7 @@ class LiveTrader:
         self.historical_data_start_time: datetime = historical_data_start_time
         self.candles: DataFrame = self._get_initial_price_data()
         pip_location: float = DataClient.get_pip_location(pair)
-        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, PriceColumns(PriceType.MID), strategy)
+        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, strategy)
         self.signal_generator.generate_signals(use_pips=True, **self.strategy_params)
 
         self.order_client: OrderClient = OrderClient(live=live)

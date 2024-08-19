@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 import itertools
 import sys
@@ -17,8 +19,6 @@ from service.SignalGenerator import SignalGenerator
 from Utilities import get_downloaded_price_data_for_pair
 from Granularity import Granularity
 from Strategy import Strategy
-from PriceColumns import PriceColumns
-from PriceType import PriceType
 from CandlePlotter import CandlePlotter
 
 if sys.version_info < (3, 8):
@@ -27,9 +27,8 @@ else:
     from typing import Literal
 
 
-class Simulator:
-    def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, price_type: PriceType = PriceType.MID, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
-        self.pc: PriceColumns = PriceColumns(price_type)
+class Backtester:
+    def __init__(self, strategy: Strategy = Strategy.MA_CROSSOVER, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
         self.data_client: DataClient = DataClient(live=False)
         self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
                                        else self.data_client.get_instruments_and_save_to_file())
@@ -38,7 +37,7 @@ class Simulator:
         self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
 
     def get_price_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, use_only_downloaded_price_data: bool) -> DataFrame:
-        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time, self.pc)
+        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
         if price_data.size != 0:
             return price_data
         if use_only_downloaded_price_data:
@@ -104,7 +103,7 @@ class Simulator:
                 plot_end = self.data_range_for_plotting.to_time
                 title = "{} Strategy Results for Currency Pair {}, with windows {} and {}, from {} to {}" \
                     .format(self.strategy.value, pair, short_window, long_window, plot_start, plot_end)
-                CandlePlotter(data, self.pc, plot_start, plot_end).plot_candles_for_ma_crossover(short_window, long_window, title)
+                CandlePlotter(data, plot_start, plot_end).plot_candles_for_ma_crossover(short_window, long_window, title)
 
         elif self.strategy == Strategy.INSIDE_BAR_MOMENTUM:
             for pair, data in self.plot_data.items():
@@ -112,7 +111,7 @@ class Simulator:
                 plot_end = self.data_range_for_plotting.to_time
                 title = "{} Strategy Results for Currency Pair {}, from {} to {}" \
                     .format(self.strategy.value, pair, plot_start, plot_end)
-                CandlePlotter(data, self.pc, plot_start, plot_end).plot_candles_for_inside_bar_momentum(title)
+                CandlePlotter(data, plot_start, plot_end).plot_candles_for_inside_bar_momentum(title)
 
     def simulate_ma_crossover_strategy(self, ma_windows: List[int], pair: str, results: List[StrategyResults], signal_generator: SignalGenerator):
         for short_window, long_window in itertools.combinations(ma_windows, 2):
@@ -135,7 +134,7 @@ class Simulator:
         if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
             raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
         signal_generator.generate_signals(use_pips=True)
-        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)[['time', self.pc.o, self.pc.h, self.pc.l, self.pc.c]]
+        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
         simulation_data = self.sort_and_reset(simulation_data)
 
         signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
@@ -146,7 +145,7 @@ class Simulator:
 
         non_materialised_trades: List[Dict[str, Any]] = []
         closed_trades: List[Dict[str, Any]] = []
-        current_trade: Trade | None = Trade(simulation_data.iloc[0], self.pc)
+        current_trade: Trade | None = Trade(simulation_data.iloc[0])
         closed_trade_already_saved: bool = False
 
         for index, row in simulation_data.iterrows():

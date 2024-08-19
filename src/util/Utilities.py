@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
@@ -5,9 +6,10 @@ from typing import List, Dict, Any
 import pandas as pd
 from pandas import DataFrame
 
+import CandleDefinitions
 from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER
 from Granularity import Granularity
-from PriceColumns import PriceColumns
+from CandleDefinitions import Price
 
 
 def flatten_candle(candle: Dict[str, Any]):
@@ -23,6 +25,9 @@ def flatten_candle(candle: Dict[str, Any]):
     return {'time': candle['time'], 'volume': candle['volume']} | candle_dict
 
 
+def instruments_file_exists() -> bool:
+    return os.path.exists(INSTRUMENTS_FILENAME)
+
 def save_instruments_to_file(instruments: DataFrame):
     """
     Save instruments to file.
@@ -32,6 +37,10 @@ def save_instruments_to_file(instruments: DataFrame):
         instruments.to_pickle(INSTRUMENTS_FILENAME)
     except Exception as e:
         raise IOError("Could not save instruments to file. Error: {}".format(e))
+
+
+def validate_candles_df(candles: DataFrame) -> bool:
+    return list(candles.columns) == CandleDefinitions.CANDLES_DF_COLUMNS
 
 
 def save_candles_to_file(candles: DataFrame, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime):
@@ -55,7 +64,7 @@ def get_historical_data_filename(pair: str, granularity: Granularity, from_time:
                                                to_time.strftime("%Y-%m-%dT%H-%M-%S"))
 
 
-def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, pc: PriceColumns) -> DataFrame:
+def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
     """
     Retrieves downloaded price data for a given pair and granularity, between 2 provided dates. Returns an empty DataFrame if no data is found.
     :param pc: Ask, bid or mid.
@@ -69,7 +78,7 @@ def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from
         candles = pd.read_pickle(get_historical_data_filename(pair, granularity, from_time, to_time))
     except FileNotFoundError:
         print("No historical data found for currency pair {} at granularity {}. Downloading...".format(pair, granularity.name))
-        return DataFrame(columns=['time', pc.o, pc.h, pc.l, pc.c])
+        return DataFrame(columns=['time'] + [column for _, column in Price.__members__])
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
     return candles

@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Dict
 
 from Candle import Candle
 from Granularity import Granularity
-from Price import Price
-from PriceColumns import PriceColumns
-from PriceType import PriceType
+from Quote import Quote
 
 
 class CandleGenerator:
@@ -20,25 +20,25 @@ class CandleGenerator:
         self.initial_time: datetime | None = None
         self.candle_dict: Dict[str, datetime | float] | None = None
 
-    def __initialise_candle(self, price: Price) -> None:
+    def __initialise_candle(self, quote: Quote) -> None:
         self.candle_dict: Dict[str, datetime | float] = {
-            'time': price.time,
-            'ask_o': price.ask,
-            'ask_h': price.ask,
-            'ask_l': price.ask,
+            'time': quote.time,
+            'ask_o': quote.ask,
+            'ask_h': quote.ask,
+            'ask_l': quote.ask,
             'ask_c': None,
-            'bid_o': price.bid,
-            'bid_h': price.bid,
-            'bid_l': price.bid,
+            'bid_o': quote.bid,
+            'bid_h': quote.bid,
+            'bid_l': quote.bid,
             'bid_c': None,
-            'mid_o': price.mid,
-            'mid_h': price.mid,
-            'mid_l': price.mid,
+            'mid_o': quote.mid,
+            'mid_h': quote.mid,
+            'mid_l': quote.mid,
             'mid_c': None,
         }
-        self.initial_time = price.time
+        self.initial_time = quote.time
 
-    def __update_candle(self, price: Price) -> None:
+    def __update_candle(self, price: Quote) -> None:
         self.candle_dict['time'] = price.time
         # Setting ask h and l
         if price.ask > self.candle_dict['ask_h']:
@@ -56,7 +56,7 @@ class CandleGenerator:
         elif price.mid < self.candle_dict['mid_l']:
             self.candle_dict['mid_l'] = price.mid
 
-    def generate(self, price: Price) -> Candle | None:
+    def generate(self, price: Quote) -> Candle | None:
         """
         Takes in a price and updates the candle.
         If the required candlestick granularity has been reached, yields a candle.
