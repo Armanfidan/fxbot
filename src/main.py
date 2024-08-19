@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from typing import Dict
 
+import Utilities
+from DataClient import DataClient
 from LiveDataStore import LiveDataStore
 from LiveTrader import LiveTrader
 from PlotProperties import PlotProperties
-from PriceColumns import PriceColumns
-from Backtester import Simulator
+from Backtester import Backtester
 from Granularity import Granularity
 from Strategy import Strategy
-from PriceType import PriceType
 
 from multiprocessing import Process
 
@@ -28,7 +30,7 @@ def simulate_pairs():
         from_time=datetime(2024, 4, 1),
         to_time=datetime.now()
     )
-    simulator = Simulator(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, price_type=PriceType.ASK, data_range_for_plotting=data_range_for_plotting)
+    simulator = Backtester(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
         trade_granularity=Granularity.H4,
@@ -52,6 +54,9 @@ def start_live_trader(_pair: str, _strategy: Strategy, _granularity: Granularity
 
 
 if __name__ == '__main__':
+    if not Utilities.instruments_file_exists():
+        DataClient(live=False).get_instruments_and_save_to_file()
+
     pair: str = "EUR_USD"
     candlestick_granularity: Granularity = Granularity.S30
     price_granularity: Granularity = Granularity.S5
