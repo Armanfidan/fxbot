@@ -5,7 +5,6 @@ import pika
 from Candle import Candle
 from CandleGenerator import CandleGenerator
 from Granularity import Granularity
-from Quote import Quote
 from client.DataClient import DataClient
 
 
@@ -29,13 +28,14 @@ class LiveDataStore:
         return self.channel_name
 
     def publish_candle(self):
-        price: Quote = Quote.from_dict(self.data_client.get_price(self.pair))
-        candle: Candle = self.candle_generator.generate(price)
+        # quote: Quote = Quote.from_dict(self.data_client.get_price(self.pair))
+        # candle: Candle = self.candle_generator.generate(quote)
+        candle: Candle = self.data_client.get_latest_candle(self.pair, self.candlestick_granularity)
         if candle:
             self.channel.basic_publish(exchange='', routing_key=self.channel_name, body=str(candle))
             print("{}: Candle published, timestamp: {}".format(self.pair, candle.time.strftime("%Y-%m-%d %H:%M:%S")))
-        else:
-            print("No candle yet. Price: {}".format(price))
+        # else:
+        #     print("No candle yet. Price: {}".format(quote))
 
     def start(self):
         try:

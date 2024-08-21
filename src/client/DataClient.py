@@ -9,10 +9,13 @@ import v20
 import pandas as pd
 from pandas import DataFrame
 
+from Candle import Candle
 from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, \
     INSTRUMENTS_FILENAME
-from Utilities import flatten_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
+from Utilities import prepare_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
 from Granularity import Granularity
+
+from warnings import deprecated
 
 MAX_CANDLESTICKS: int = 5000
 
@@ -35,11 +38,9 @@ class DataClient:
         if response.status != 200:
             raise HTTPException(
                 "Cannot get candlesticks for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.body.errorMessage))
-        candles: DataFrame = DataFrame([flatten_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
-        economic_columns: List = list(set(candles.columns) - {'time', 'volume'})
-        candles[economic_columns] = candles[economic_columns].apply(pd.to_numeric, errors='coerce')
-        candles.rename(columns={col: col.replace('.', '_') for col in economic_columns}, inplace=True)
-        candles['time'] = pd.to_datetime(pd.to_numeric(candles['time']), unit='s')
+        candles: DataFrame = DataFrame([prepare_candle(vars(candle)) for candle in response.body['candles'] if candle.complete])
+        # candles[CandleDefinitions.CANDLES_DF_COLUMNS] = candles[CandleDefinitions.CANDLES_DF_COLUMNS].apply(pd.to_numeric, errors='coerce')
+        # candles['time'] = pd.to_datetime(pd.to_numeric(candles['time']), unit='s')
         return candles, candles.iloc[-1]['time']
 
     def get_candles_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
@@ -87,11 +88,12 @@ class DataClient:
         save_candles_to_file(candles, pair, granularity, from_time, to_time)
         return candles
 
+    @deprecated("Replaced with new implementation retrieving latest candle from OANDA. Will be removed with next commit.")
     def get_price(self, pair: str) -> Dict[str, datetime | float]:
         """
-        For a given pair, returns the latest ask, bid and mid prices, as well as the timestamp.
+        For a given pair, returns the latest ask, bid and midpoint prices, as well as the timestamp.
         :param pair: Currency pair to get the latest price for.
-        :return: A dictionary containing the ask, bid and mid prices and the timestamp.
+        :return: A dictionary containing the ask, bid and midpoint prices and the timestamp.
         """
         response: v20.response = self.api.pricing.get(OANDA_LIVE_ACCOUNT_ID if self.live else OANDA_DEMO_ACCOUNT_ID, instruments=pair)
         if response.status != 200:
@@ -103,18 +105,16 @@ class DataClient:
         candle_time: datetime = datetime.fromtimestamp(float(response.body['prices'][0].time))
         return {'ask': ask, 'bid': bid, 'mid': mid, 'time': candle_time}
 
-    # TODO: Implement this. Retrieve the latest candle rather than generating it yourself. This will be much more accurate.
-    # def get_latest_candle(self, pair: str, granularity: Granularity, price_type: PriceType) -> Dict[str, datetime | float]:
-    #     """
-    #     For a given pair, returns the latest candle, given the granularity and price type.
-    #     :param price_type: Ask, bid or mid.
-    #     :param granularity: Granularity of the latest candlestick to fetch.
-    #     :param pair: Currency pair to get the latest price for.
-    #     :return: A dictionary containing the latest candle.
-    #     """
-    #     response: v20.response = self.api.pricing.candles()
-    #     if response.status != 200:
-    #         raise HTTPException(
-    #             "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
-    #     prices = response.body['price']
-    #     return {price_type: float(price) for price_type, price in prices.items()}
+    def get_latest_candle(self, pair: str, granularity: Granularity) -> Candle:
+        """
+        For a given pair, returns the latest candle, given the granularity and price type.
+        :param granularity: Granularity of the latest candlestick to fetch.
+        :param pair: Currency pair to get the latest price for.
+        :return: A dictionary containing the latest candle.
+        """
+        response: v20.response = self.api.instrument.candles(instrument=pair, count=1, granularity=granularity.name, price='MBA')
+        if response.status != 200:
+            raise HTTPException("Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
+        # We should get one candle only so this should work
+        candle: Dict[str, float | datetime] = next(prepare_candle(vars(candle)) for candle in response.body['candles'] if candle['complete'])
+        return Candle.from_dict(candle)
