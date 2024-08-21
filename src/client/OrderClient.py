@@ -1,9 +1,7 @@
-from datetime import datetime
 from http.client import HTTPException
-from typing import Tuple, Literal
+from typing import Literal
 
 import v20
-from pandas import DataFrame
 
 from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID
 from Order import TakeProfitOrder, StopLossOrder, TrailingStopLossOrder
@@ -20,7 +18,7 @@ class OrderClient:
             datetime_format='UNIX'
         )
 
-    def place_market_order(self, pair: str, units: int, time_in_force: Literal['FOK', 'GTC', 'GTD', 'GFD', 'MOO', 'LOO', 'IOC', 'DTC'], price_bound: float, take_profit_on_fill: TakeProfitOrder = None, stop_loss_on_fill: StopLossOrder = None, trailing_stop_loss_on_fill: TrailingStopLossOrder = None) -> Tuple[DataFrame, datetime]:
+    def place_market_order(self, pair: str, units: int, time_in_force: Literal['FOK', 'GTC', 'GTD', 'GFD', 'MOO', 'LOO', 'IOC', 'DTC'], price_bound: float, take_profit_on_fill: TakeProfitOrder = None, stop_loss_on_fill: StopLossOrder = None, trailing_stop_loss_on_fill: TrailingStopLossOrder = None):
         response: v20.response = self.api.order.market(OANDA_LIVE_ACCOUNT_ID if self.live else OANDA_DEMO_ACCOUNT_ID,
                                                        instrument=pair,
                                                        units=units,

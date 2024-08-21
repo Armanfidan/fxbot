@@ -12,21 +12,22 @@ from Granularity import Granularity
 from CandleDefinitions import Price
 
 
-def flatten_candle(candle: Dict[str, Any]):
+def prepare_candle(candle: Dict[str, Any]) -> Dict[str, float | datetime]:
     """
     Flatten a candle dictionary.
     :param candle: The candle to flatten. Do not pass the Candlestick object - rather do vars(candle) before passing.
     :return: The flattened candle.
     """
     prices: List[str] = ['mid', 'bid', 'ask']
-    candle_dict: Dict[str, str] = {}
+    candle_dict: Dict[str, float] = {}
     for price in prices:
-        candle_dict.update({'{}.{}'.format(price, subprice): value for subprice, value in vars(candle[price]).items()})
-    return {'time': candle['time'], 'volume': candle['volume']} | candle_dict
+        candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(candle[price]).items()})
+    return {'time': datetime.fromtimestamp(candle['time']), 'volume': float(candle['volume'])} | candle_dict
 
 
 def instruments_file_exists() -> bool:
     return os.path.exists(INSTRUMENTS_FILENAME)
+
 
 def save_instruments_to_file(instruments: DataFrame):
     """
@@ -67,7 +68,6 @@ def get_historical_data_filename(pair: str, granularity: Granularity, from_time:
 def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from_time: datetime, to_time: datetime) -> DataFrame:
     """
     Retrieves downloaded price data for a given pair and granularity, between 2 provided dates. Returns an empty DataFrame if no data is found.
-    :param pc: Ask, bid or mid.
     :param pair: Currency pair to retrieve data for
     :param granularity: Granularity to retrieve data for
     :param from_time: Start time to retrieve data from.

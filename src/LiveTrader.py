@@ -36,9 +36,9 @@ class LiveTrader:
     def _get_initial_price_data(self) -> DataFrame:
         return self.data_client.create_data_for_pair(self.pair, self.granularity, self.historical_data_start_time, datetime.now())
 
-    def consume_candle(self, ch, method, properties, body):
+    def consume_candle(self, _, __, ___, body):
         print("Candle consumed: {}".format(body))
-        candle_dict: Dict = json.loads(body)
+        candle_dict: Dict[str, float | datetime] = json.loads(body)
         candle_dict['volume'] = 1
         self.candles.loc[-1] = candle_dict
         self.candles = self.candles.iloc[1:]

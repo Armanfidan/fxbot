@@ -18,6 +18,7 @@ class CandlePlotter:
 
     def add_signal_trace(self, signal_type: Literal['buy', 'sell']):
         buy: bool = signal_type == 'buy'
+        # noinspection SpellCheckingInspection
         self.fig.add_trace(go.Scatter(mode='markers',
                                       x=self.candles[self.candles['signal'] == (1 if buy else -1)]['time'],
                                       y=self.candles[self.candles['signal'] == (1 if buy else -1)][Price.ASK_CLOSE.value if buy else Price.BID_CLOSE.value],

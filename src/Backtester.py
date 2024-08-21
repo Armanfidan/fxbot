@@ -160,7 +160,7 @@ class Backtester:
                 if current_trade.is_open():  # Check whether the previous trade is open.
                     current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
                     non_materialised_trades.append(vars(current_trade))
-                current_trade = Trade(row, self.pc)  # Create a new trade from the current row.
+                current_trade = Trade(row)  # Create a new trade from the current row.
                 closed_trade_already_saved = False  # New trade! Not already saved.
                 continue  # We don't want to update the trade (We just opened it), so skip the rest.
 
@@ -190,11 +190,12 @@ class Backtester:
     def sort_and_reset(simulation_data):
         """
         Sorts the simulation data DataFrame by time and resets its index.
-        :param simulation_data: Simuation data DataFrame to use.
+        :param simulation_data: Simulation data DataFrame to use.
         :return: The sorted and reset DataFrame.
         """
         return simulation_data.sort_values(by='time').reset_index(drop=True)
 
+    # noinspection PyTypeChecker
     def run(self,
             currencies: List[str],
             trade_granularity: Granularity,
@@ -229,7 +230,7 @@ class Backtester:
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
             pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
-            signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, trade_granularity, price_data, self.pc, self.strategy)
+            signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, trade_granularity, price_data, self.strategy)
 
             if self.strategy == Strategy.MA_CROSSOVER:
                 self.simulate_ma_crossover_strategy(ma_windows, pair, results, signal_generator)
