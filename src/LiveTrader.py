@@ -8,7 +8,7 @@ from pandas import DataFrame
 from DataClient import DataClient
 from Granularity import Granularity
 from OrderClient import OrderClient
-from SignalGenerator import SignalGenerator
+from signal_generators.SignalGenerator import SignalGenerator
 from Strategy import Strategy
 
 

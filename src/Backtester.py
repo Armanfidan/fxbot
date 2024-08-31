@@ -15,7 +15,7 @@ from client.DataClient import DataClient
 from PlotProperties import PlotProperties
 from StrategyResults import StrategyResults
 from Trade import Trade
-from service.SignalGenerator import SignalGenerator
+from signal_generators.SignalGenerator import SignalGenerator
 from Utilities import get_downloaded_price_data_for_pair
 from Granularity import Granularity
 from Strategy import Strategy
@@ -121,7 +121,7 @@ class Backtester:
             results.append(signal_generator.evaluate_strategy())
             # Save data to be plotted
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                self.plot_data[(pair, short_window, long_window)] = signal_generator.historical_data.copy()
+                self.plot_data[(pair, short_window, long_window)] = signal_generator.queue.copy()
 
     def simulate_inside_bar_momentum_strategy(self,
                                               pair: str,
@@ -179,12 +179,12 @@ class Backtester:
         simulation_data = simulation_data[~simulation_data['time'].isin(list(non_materialised_trades_df['time']))]
         simulation_data = self.sort_and_reset(pd.concat([simulation_data, non_materialised_trades_df]))
 
-        signal_generator.set_historical_data(simulation_data)
+        signal_generator.set_candles_df(simulation_data)
         signal_generator.generate_inside_bar_momentum_signal_detail_columns(use_pips=True)
         results.append(signal_generator.evaluate_strategy())
         # Save data to be plotted
         if pair in self.data_range_for_plotting.currency_pairs:
-            self.plot_data[pair] = signal_generator.historical_data.copy()
+            self.plot_data[pair] = signal_generator.queue.copy()
 
     @staticmethod
     def sort_and_reset(simulation_data):
