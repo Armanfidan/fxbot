@@ -6,10 +6,12 @@ from typing import List, Dict, Any
 import pandas as pd
 from pandas import DataFrame
 
-import CandleDefinitions
+import candle.Price
 from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER
 from Granularity import Granularity
-from CandleDefinitions import Price
+from candle.CandlePrice import CandlePrice
+from candle.CandleType import CandleType
+from candle.Price import Price
 
 
 def prepare_candle(candle: Dict[str, Any]) -> Dict[str, float | datetime]:
@@ -41,7 +43,7 @@ def save_instruments_to_file(instruments: DataFrame):
 
 
 def validate_candles_df(candles: DataFrame) -> bool:
-    return list(candles.columns) == CandleDefinitions.CANDLES_DF_COLUMNS
+    return list(candles.columns) == candle.Price.CANDLES_DF_COLUMNS
 
 
 def save_candles_to_file(candles: DataFrame, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime):
@@ -82,3 +84,7 @@ def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from
     columns = [col for col in candles.columns if col not in ['time', 'volume']]
     candles[columns] = candles[columns].apply(pd.to_numeric, errors='coerce')
     return candles
+
+
+def get_candle_column(candle_type: CandleType, candle_schema: CandlePrice) -> str:
+    return "{}_{}".format(candle_type.value, candle_schema.value)

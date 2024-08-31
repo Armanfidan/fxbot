@@ -2,7 +2,7 @@ from time import sleep
 
 import pika
 
-from Candle import Candle
+from candle.Candle import Candle
 from CandleGenerator import CandleGenerator
 from Granularity import Granularity
 from client.DataClient import DataClient

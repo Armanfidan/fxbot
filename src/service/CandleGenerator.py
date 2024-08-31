@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict
 
-from Candle import Candle
+from candle.Candle import Candle
 from Granularity import Granularity
 from Quote import Quote
 
