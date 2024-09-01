@@ -9,7 +9,7 @@ STOP_LOSS_MUL = 0.4
 TAKE_PROFIT_MUL = 0.8
 
 
-class MovingAverageCrossoverSignalGenerator(SignalGenerator):
+class InsideBarMomentumSignalGenerator(SignalGenerator):
 
     def _generate_inside_bar_momentum_indicators(self):
         self.queue['range_prev'] = (self.queue[Price.MID_HIGH.value] - self.queue[Price.MID_LOW.value]).shift(1)

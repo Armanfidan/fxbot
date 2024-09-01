@@ -13,6 +13,9 @@ sns.set_theme()
 
 
 class SignalGenerator:
+    """
+    Parent class SignalGenerator. Extend for each strategy and implement iterate().
+    """
     def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame = None):
         self.pair: str = pair
         self.pip_location: float = pip_location

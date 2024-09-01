@@ -1,11 +1,10 @@
 from collections import deque
-from typing import Tuple, Literal, List
+from typing import Literal, override
 
 from pandas import DataFrame
 
 from Granularity import Granularity
 from candle.Candle import Candle
-from candle.Price import Price
 from signal_generators.SignalGenerator import SignalGenerator
 from strategy_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 from strategy_iterations.StrategyIteration import StrategyIteration
@@ -48,18 +47,6 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
     #     self.signals['duration'] = self.signals['time'].diff().shift(-1).apply(lambda time: time.seconds / 60)
     #     return self.signals
 
-    def iterate(self, candle: Candle) -> StrategyIteration:
-        self.iterate_queue(candle, window="long")
-        self.iterate_queue(candle, window="short")
-        iteration: MovingAverageCrossoverIteration = MovingAverageCrossoverIteration(
-            candle=candle,
-            signal=self.generate_signal(),
-            short_average=self.current_short_average,
-            long_average=self.current_long_average
-        )
-        self.queue.append(iteration)
-        return iteration
-
     def generate_signal(self) -> int:
         """
         Generates a signal for the latest short and long total values.
@@ -71,8 +58,7 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
             return -1
         if previous_difference < 0 <= current_difference:
             return 1
-        else:
-            return 0
+        return 0
 
     def iterate_queue(self, candle, window: Literal["long", "short"]):
         """
@@ -91,6 +77,18 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
         average += candle.mid_c / window
         queue.append(candle)
 
+    @override
+    def iterate(self, candle: Candle) -> StrategyIteration:
+        self.iterate_queue(candle, window="long")
+        self.iterate_queue(candle, window="short")
+        iteration: MovingAverageCrossoverIteration = MovingAverageCrossoverIteration(
+            candle=candle,
+            signal=self.generate_signal(),
+            short_average=self.current_short_average,
+            long_average=self.current_long_average
+        )
+        self.queue.append(iteration)
+        return iteration
     # def generate_signals(self, use_pips: bool) -> DataFrame:
     #     self._generate_ma_crossover_signals(self.params['short_window'], self.params['long_window'])
     #     return self._generate_ma_crossover_signal_detail_columns(use_pips)
