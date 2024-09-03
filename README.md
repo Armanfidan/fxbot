@@ -28,7 +28,7 @@ To change the currencies, properties or indicators, edit this file.
 ### Running the real-time trading bot locally
 The real-time trading bot has its entry point in `real_time_trading_main.py`.
 This system depends on a messaging queue, RabbitMQ, to run. To run this, follow these steps:
-1. Install RabbitMQ. Follow the instructions on [this page](https://www.rabbitmq.com/docs/download).If on macOS, you 
+1. Install RabbitMQ. Follow the instructions on [this page](https://www.rabbitmq.com/docs/download).
    If on macOS, you can run `brew install rabbitmq` to install this.
 2. Start the message queue broker by running `rabbitmq-server`.
 3. Then run `python3 real_time_trading_main.py` to start the services.

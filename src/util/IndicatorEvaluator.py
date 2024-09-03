@@ -2,7 +2,15 @@ from typing import Tuple
 from pandas import DataFrame
 
 
-class IndicatorEvaluation:
+class IndicatorEvaluator:
+    """
+    An object to calculate and store metrics about backtesting certain indicators:
+    - Return on Investment
+    - Sharpe ratio
+    - Maximum Drawdown
+    - Profit to drawdown ratio
+    - Total time in market
+    """
     def __init__(self, pair: str, signals: DataFrame):
         self.pair: str = pair
         self.signals: DataFrame = signals

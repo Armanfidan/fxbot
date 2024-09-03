@@ -14,7 +14,7 @@ from src.client.DataClient import DataClient
 
 from src.util.Constants import INSTRUMENTS_FILENAME
 from src.util.PlotProperties import PlotProperties
-from src.util.IndicatorEvaluation import IndicatorEvaluation
+from src.util.IndicatorEvaluator import IndicatorEvaluator
 from src.util.Utilities import get_downloaded_price_data_for_pair
 from src.util.CandlePlotter import CandlePlotter
 from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
@@ -75,7 +75,7 @@ class Backtester:
         return currency_data
 
     @staticmethod
-    def create_results_df(results: List[IndicatorEvaluation]) -> DataFrame:
+    def create_results_df(results: List[IndicatorEvaluator]) -> DataFrame:
         results_dicts: List[Dict[str, str]] = []
         for result in results:
             result_dict: Dict[str, str] = vars(result)
@@ -113,7 +113,7 @@ class Backtester:
                     .format(self.indicator.value, pair, plot_start, plot_end)
                 CandlePlotter(data, plot_start, plot_end).plot_candles_for_inside_bar_momentum(title)
 
-    def simulate_ma_crossover(self, ma_windows: List[int], pair: str, pip_location: int, granularity: Granularity, candle_data: DataFrame, results: List[IndicatorEvaluation]):
+    def simulate_ma_crossover(self, ma_windows: List[int], pair: str, pip_location: int, granularity: Granularity, candle_data: DataFrame, results: List[IndicatorEvaluator]):
         for short_window, long_window in itertools.combinations(ma_windows, 2):
             if short_window >= long_window:
                 continue
@@ -228,7 +228,7 @@ class Backtester:
         historical_price_data_for_currencies: Dict[str, DataFrame] = \
             self.get_price_data_for_all_combinations_of_currencies(currencies, trade_granularity, use_only_downloaded_price_data, from_time, to_time)
 
-        results: List[IndicatorEvaluation] = []
+        results: List[IndicatorEvaluator] = []
         for pair, price_data in historical_price_data_for_currencies.items():
             print("Running simulation for pair", pair)
             pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])

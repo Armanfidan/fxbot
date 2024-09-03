@@ -5,7 +5,7 @@ import seaborn as sns
 
 from pandas import DataFrame
 
-from src.util.IndicatorEvaluation import IndicatorEvaluation
+from src.util.IndicatorEvaluator import IndicatorEvaluator
 from src.model.candle.Candle import Candle
 from src.model.Granularity import Granularity
 from src.model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
@@ -58,7 +58,7 @@ class SignalGenerator:
             raise ValueError("Please iterate the signal generator before attempting to retrieve signals.")
         return DataFrame([vars(iteration.candle) | {"signal": iteration.signal} for iteration in self.queue])
 
-    def evaluate_indicator(self) -> IndicatorEvaluation:
+    def evaluate_indicator(self) -> IndicatorEvaluator:
         """
         I need a way of evaluating the strategies I implement.
         What metrics do I need?
@@ -80,7 +80,7 @@ class SignalGenerator:
         - You should also compare the results to indices such as the S&P 500.
         :return:
         """
-        indicator_evaluation: IndicatorEvaluation = IndicatorEvaluation(
+        indicator_evaluation: IndicatorEvaluator = IndicatorEvaluator(
             pair=self.pair,
             signals=self.generate_signals_dataframe(),
         )
