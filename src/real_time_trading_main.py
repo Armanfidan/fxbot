@@ -6,41 +6,11 @@ from typing import Dict
 import Utilities
 from DataClient import DataClient
 from LiveDataStore import LiveDataStore
-from LiveTrader import LiveTrader
-from PlotProperties import PlotProperties
-from Backtester import Backtester
+from app.RealTimeTrader import LiveTrader
 from Granularity import Granularity
 from Indicator import Indicator
 
 from multiprocessing import Process
-
-
-def simulate_pairs():
-    currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD']
-    # currencies = ['EUR', 'USD', 'GBP']
-    # currencies = ['EUR', 'USD', 'GBP']
-    # data_range_for_plotting = PlotProperties(
-    #     currencies,
-    #     [(32, 64), (32, 128), (64, 128)],
-    #     datetime(2023, 1, 1),
-    #     datetime.now()
-    # )
-    data_range_for_plotting = PlotProperties(
-        currencies=currencies,
-        from_time=datetime(2024, 4, 1),
-        to_time=datetime.now()
-    )
-    simulator = Backtester(use_downloaded_currency_pairs=False, indicator=Indicator.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
-    simulator.run(
-        currencies=currencies,
-        trade_granularity=Granularity.H4,
-        simulation_granularity=Granularity.M5,
-        use_only_downloaded_price_data=False,
-        from_time=datetime(2020, 1, 1),
-        to_time=datetime(2024, 6, 28, 20, 59, 14),
-        file_type='csv'
-    )
-    simulator.plot_results_for_selected_data()
 
 
 def start_live_data_store(_pair: str, _candlestick_granularity: Granularity, _price_granularity: Granularity):
