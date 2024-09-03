@@ -29,7 +29,7 @@ class LiveTrader:
         self.candles: DataFrame = self._get_initial_price_data()
         pip_location: float = DataClient.get_pip_location(pair)
         self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, strategy)
-        self.signal_generator.generate_signals(use_pips=True, **self.strategy_params)
+        self.signal_generator.generate_signals_for_backtesting(use_pips=True, **self.strategy_params)
 
         self.order_client: OrderClient = OrderClient(live=live)
 

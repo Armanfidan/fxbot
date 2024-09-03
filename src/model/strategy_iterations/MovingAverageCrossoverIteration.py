@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from StrategyIteration import StrategyIteration
+from model.strategy_iterations.StrategyIteration import StrategyIteration
 
 
 @dataclass

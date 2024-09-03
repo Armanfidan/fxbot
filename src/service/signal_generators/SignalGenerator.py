@@ -16,42 +16,36 @@ class SignalGenerator:
     """
     Parent class SignalGenerator. Extend for each strategy and implement iterate().
     """
-    def __init__(self, pair: str, pip_location: float, granularity: Granularity, historical_data: DataFrame = None):
+    def __init__(self, pair: str, pip_location: float, granularity: Granularity, initial_candles: DataFrame):
         self.pair: str = pair
         self.pip_location: float = pip_location
         self.granularity: Granularity = granularity
         self.queue: deque[StrategyIteration] | None = None
-        self.candles_df: DataFrame = DataFrame()
-        self.signals: DataFrame = DataFrame()
-        if historical_data:
-            self.set_candles_df(historical_data)
 
-    def set_candles_df(self, candles_df: DataFrame) -> None:
-        self.candles_df = candles_df.copy()
-
-    def set_candles_queue_from_df(self, queue_size: int) -> None:
-        if not self.queue:
-            raise ValueError('Please initialise the candle queue before attempting to set it.')
-        for index, row in self.candles_df.head(queue_size).iterrows():
+    def iterate_from_dataframe(self, candles: DataFrame) -> None:
+        """
+        Use this method to iterate the generator based on candles in a provided DataFrame.
+        :param candles: The candles to generate signals for.
+        """
+        for index, row in candles.iterrows():
             candle: Candle = Candle.from_dict(row.to_dict())  # TODO: Check whether this is correct
-            iteration: StrategyIteration = self.iterate(candle)
-            self.queue.append(iteration)
+            self.iterate(candle)
 
-    def iterate(self, candle: Candle) -> StrategyIteration:
+    def iterate(self, candle: Candle) -> None:
         """
-        Iterate the signal generator.
-        :return: The latest iteration, with the latest candle, indicators and signal (if any).
+        Iterate the signal generator. Append the StrategyIteration object to the queue.
+        Do not forget to append the latest candle to the queue when implementing.
+        :param candle: The latest candle.
         """
-        pass
+        raise NotImplementedError("Please implement method before iterating the signal generator.")
 
-    def generate_signals(self, use_pips: bool) -> DataFrame:
+    def generate_signals_for_backtesting(self, candles: DataFrame, use_pips: bool) -> None:
         """
         Generate signals based on a pre-defined strategy. Use this to generate all signals in one go, for backtesting.
+        :param candles: DataFrame containing all historical data to generate signals for.
         :param use_pips: Whether to use pips to calculate returns. If false, will use nominal value.
         :return: A dataframe of historical price data with a column representing signal signals (1 for buy, -1 for sell).
         """
-        for index, row in self.candles_df.iterrows():
-            candle: Candle = Candle.from_dict(row.to_dict())  # TODO: Check whether this is correct
-            iteration: StrategyIteration = self.iterate(candle)
-            self.queue.append(iteration)
-        return self.signals
+        if self.queue:
+            raise ValueError("Please do not initialise the iteration queue if backtesting.")
+        self.iterate_from_dataframe(candles)

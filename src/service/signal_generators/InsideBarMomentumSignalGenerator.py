@@ -51,7 +51,7 @@ class InsideBarMomentumSignalGenerator(SignalGenerator):
     def iterate(self) -> StrategyIteration:
         pass
 
-    def generate_signals(self, use_pips: bool) -> DataFrame:
+    def generate_signals_for_backtesting(self, use_pips: bool) -> DataFrame:
         self._generate_inside_bar_momentum_signals()
         return self.signals
 

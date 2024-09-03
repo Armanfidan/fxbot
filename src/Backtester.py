@@ -117,7 +117,7 @@ class Backtester:
         for short_window, long_window in itertools.combinations(ma_windows, 2):
             if short_window >= long_window:
                 continue
-            signal_generator.generate_signals(short_window=short_window, long_window=long_window, use_pips=True)
+            signal_generator.generate_signals_for_backtesting(short_window=short_window, long_window=long_window, use_pips=True)
             results.append(signal_generator.evaluate_strategy())
             # Save data to be plotted
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
@@ -133,7 +133,7 @@ class Backtester:
                                               use_only_downloaded_price_data: bool):
         if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
             raise ValueError("The simulation granularity is too coarse for te inside bar momentum strategy simulation. Please choose a granularity finer than M5.")
-        signal_generator.generate_signals(use_pips=True)
+        signal_generator.generate_signals_for_backtesting(use_pips=True)
         simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
         simulation_data = self.sort_and_reset(simulation_data)
 
