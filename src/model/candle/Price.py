@@ -1,8 +1,11 @@
 from enum import Enum
 
-from Utilities import get_candle_column
 from candle.CandlePrice import CandlePrice
 from candle.CandleType import CandleType
+
+
+def get_candle_column(candle_type: CandleType, candle_schema: CandlePrice) -> str:
+    return "{}_{}".format(candle_type.value, candle_schema.value)
 
 
 class Price(Enum):

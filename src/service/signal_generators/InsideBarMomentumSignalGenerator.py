@@ -1,7 +1,7 @@
 from pandas import DataFrame
 
 from signal_generators.SignalGenerator import SignalGenerator
-from strategy_iterations.StrategyIteration import StrategyIteration
+from signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
 
 
 ENTRY_PRICE_MUL = 0.1
@@ -48,10 +48,10 @@ class InsideBarMomentumSignalGenerator(SignalGenerator):
         self.signals = self.queue[self.queue['signal'].notna()]
         return self.signals
 
-    def iterate(self) -> StrategyIteration:
+    def iterate(self) -> SignalGeneratorIteration:
         pass
 
-    def generate_signals(self, use_pips: bool) -> DataFrame:
+    def generate_signals_for_backtesting(self, use_pips: bool) -> DataFrame:
         self._generate_inside_bar_momentum_signals()
         return self.signals
 

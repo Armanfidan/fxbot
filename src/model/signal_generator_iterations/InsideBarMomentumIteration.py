@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from StrategyIteration import StrategyIteration
+from SignalGeneratorIteration import SignalGeneratorIteration
 
 
 @dataclass
-class MovingAverageCrossoverIteration(StrategyIteration):
+class InsideBarMomentumIteration(SignalGeneratorIteration):
     range_prev: float
     mid_h_prev: float
     mid_l_prev: float
