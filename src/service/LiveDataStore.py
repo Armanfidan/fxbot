@@ -5,7 +5,7 @@ import pika
 from src.model.candle.Candle import Candle
 from src.model.Granularity import Granularity
 from src.service.CandleGenerator import CandleGenerator
-from src.client.DataClient import DataClient
+from src.client.OandaDataClient import OandaDataClient
 
 
 class LiveDataStore:
@@ -15,7 +15,7 @@ class LiveDataStore:
         self.candlestick_granularity: Granularity = candlestick_granularity
         self.price_granularity: Granularity = price_granularity
 
-        self.data_client: DataClient = DataClient(live=True)
+        self.data_client: OandaDataClient = OandaDataClient(live=True)
         self.candle_generator: CandleGenerator = CandleGenerator(pair, candlestick_granularity)
 
         self.connection: pika.BlockingConnection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))

@@ -19,7 +19,7 @@ from typing_extensions import deprecated
 MAX_CANDLESTICKS: int = 5000
 
 
-class DataClient:
+class OandaDataClient:
     def __init__(self, live: bool):
         self.live: bool = live
         self.api = v20.Context(

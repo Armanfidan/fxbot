@@ -10,7 +10,7 @@ from pandas import DataFrame
 
 # from math import isnan
 
-from src.client.DataClient import DataClient
+from src.client.OandaDataClient import OandaDataClient
 
 from src.util.Constants import INSTRUMENTS_FILENAME
 from src.util.PlotProperties import PlotProperties
@@ -31,7 +31,7 @@ else:
 
 class Backtester:
     def __init__(self, indicator: Indicator = Indicator.MA_CROSSOVER, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
-        self.data_client: DataClient = DataClient(live=False)
+        self.data_client: OandaDataClient = OandaDataClient(live=False)
         self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
                                        else self.data_client.get_instruments_and_save_to_file())
         self.indicator: Indicator = indicator

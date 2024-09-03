@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 
 import src.util.Utilities as Utilities
-from src.client.DataClient import DataClient
+from src.client.OandaDataClient import OandaDataClient
 from src.util.PlotProperties import PlotProperties
 from src.model.Granularity import Granularity
 from src.model.Indicator import Indicator
@@ -40,7 +40,7 @@ def simulate_pairs(currencies: List[str]):
 
 if __name__ == '__main__':
     if not Utilities.instruments_file_exists():
-        DataClient(live=False).get_instruments_and_save_to_file()
+        OandaDataClient(live=False).get_instruments_and_save_to_file()
 
     simulate_pairs(currencies=['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD'])
 

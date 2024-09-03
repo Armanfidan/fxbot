@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict
 
 import src.util.Utilities as Utilities
-from src.client.DataClient import DataClient
+from src.client.OandaDataClient import OandaDataClient
 from src.service.LiveDataStore import LiveDataStore
 from src.app.RealTimeTrader import LiveTrader
 from src.model.Granularity import Granularity
@@ -25,7 +25,7 @@ def start_live_trader(_pair: str, _indicator: Indicator, _granularity: Granulari
 
 if __name__ == '__main__':
     if not Utilities.instruments_file_exists():
-        DataClient(live=False).get_instruments_and_save_to_file()
+        OandaDataClient(live=False).get_instruments_and_save_to_file()
 
     pair: str = "EUR_USD"
     candlestick_granularity: Granularity = Granularity.S30

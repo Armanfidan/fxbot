@@ -9,7 +9,7 @@ from src.model.Order import TakeProfitOrder, StopLossOrder, TrailingStopLossOrde
 MAX_CANDLESTICKS: int = 5000
 
 
-class OrderClient:
+class OandaOrderClient:
     def __init__(self, live: bool):
         self.live: bool = live
         self.api = v20.Context(
