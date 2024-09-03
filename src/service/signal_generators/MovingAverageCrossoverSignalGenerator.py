@@ -6,12 +6,12 @@ from pandas import DataFrame
 from Granularity import Granularity
 from candle.Candle import Candle
 from signal_generators.SignalGenerator import SignalGenerator
-from strategy_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
+from signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 
 
 class MovingAverageCrossoverSignalGenerator(SignalGenerator):
     """
-    A generator to generate signals for the Moving Average Crossover strategy. Works for backtesting or iterative generation
+    A generator to generate signals for the Moving Average Crossover indicator. Works for backtesting or iterative generation
     for live trading.
     """
     def __init__(self, pair: str, pip_location: float, granularity: Granularity, short_window: int, long_window: int, initial_candles: DataFrame = None):

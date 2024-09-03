@@ -7,7 +7,7 @@ from pandas import DataFrame
 from model.Granularity import Granularity
 from model.candle.Candle import Candle
 from service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-from model.strategy_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
+from model.signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ class TestMovingAverageCrossoverSignalGenerator:
         assert len(signal_generator.short_candles_queue) == 1
         assert signal_generator.short_candles_queue.pop() == candle
         assert signal_generator.current_short_average == candle.mid_c / signal_generator.short_window
-        # Then the StrategyIteration queue should update.
+        # Then the SignalGeneratorIteration queue should update.
         iteration = MovingAverageCrossoverIteration(candle=candle,
                                                     signal=0,
                                                     long_average=candle.mid_c / signal_generator.long_window,

@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from typing import override
 
-from model.strategy_iterations.StrategyIteration import StrategyIteration
+from model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
 
 
 @dataclass
-class MovingAverageCrossoverIteration(StrategyIteration):
+class MovingAverageCrossoverIteration(SignalGeneratorIteration):
     short_average: float
     long_average: float
 

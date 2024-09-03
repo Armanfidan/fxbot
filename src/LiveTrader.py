@@ -9,27 +9,27 @@ from DataClient import DataClient
 from Granularity import Granularity
 from OrderClient import OrderClient
 from signal_generators.SignalGenerator import SignalGenerator
-from Strategy import Strategy
+from Indicator import Indicator
 
 
 class LiveTrader:
-    def __init__(self, pair: str, strategy: Strategy, granularity: Granularity, live: bool, historical_data_start_time: datetime, order_units: int, strategy_params: Dict | None = None):
-        print("Initializing LiveTrader for pair {}, strategy {} and granularity {}.".format(pair, strategy, granularity))
+    def __init__(self, pair: str, indicator: Indicator, granularity: Granularity, live: bool, historical_data_start_time: datetime, order_units: int, indicator_params: Dict | None = None):
+        print("Initializing LiveTrader for pair {}, indicator {} and granularity {}.".format(pair, indicator, granularity))
         print("Collecting initial data from {}.".format(historical_data_start_time.strftime("%Y-%m-%d %H:%M:%S")))
         print("############# CAUTION: TRADING LIVE. #############" if live else "Demo trading mode.")
-        if strategy_params is None:
-            strategy_params = {}
-        self.strategy_params: Dict = strategy_params
+        if indicator_params is None:
+            indicator_params = {}
+        self.indicator_params: Dict = indicator_params
         self.order_units: int = order_units
         self.pair: str = pair
-        self.strategy: Strategy = strategy
+        self.indicator: Indicator = indicator
         self.granularity: Granularity = granularity
         self.data_client: DataClient = DataClient(live=live)
         self.historical_data_start_time: datetime = historical_data_start_time
         self.candles: DataFrame = self._get_initial_price_data()
         pip_location: float = DataClient.get_pip_location(pair)
-        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, strategy)
-        self.signal_generator.generate_signals_for_backtesting(use_pips=True, **self.strategy_params)
+        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, indicator)
+        self.signal_generator.generate_signals_for_backtesting(use_pips=True, **self.indicator_params)
 
         self.order_client: OrderClient = OrderClient(live=live)
 

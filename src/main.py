@@ -10,7 +10,7 @@ from LiveTrader import LiveTrader
 from PlotProperties import PlotProperties
 from Backtester import Backtester
 from Granularity import Granularity
-from Strategy import Strategy
+from Indicator import Indicator
 
 from multiprocessing import Process
 
@@ -30,7 +30,7 @@ def simulate_pairs():
         from_time=datetime(2024, 4, 1),
         to_time=datetime.now()
     )
-    simulator = Backtester(use_downloaded_currency_pairs=False, strategy=Strategy.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
+    simulator = Backtester(use_downloaded_currency_pairs=False, indicator=Indicator.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
     simulator.run(
         currencies=currencies,
         trade_granularity=Granularity.H4,
@@ -48,8 +48,8 @@ def start_live_data_store(_pair: str, _candlestick_granularity: Granularity, _pr
     live_data_store.start()
 
 
-def start_live_trader(_pair: str, _strategy: Strategy, _granularity: Granularity, _live: bool, _historical_data_start_time: datetime, _order_units: int, _strategy_params: Dict | None):
-    live_trader = LiveTrader(_pair, _strategy, _granularity, _live, _historical_data_start_time, _order_units, _strategy_params)
+def start_live_trader(_pair: str, _indicator: Indicator, _granularity: Granularity, _live: bool, _historical_data_start_time: datetime, _order_units: int, _indicator_params: Dict | None):
+    live_trader = LiveTrader(_pair, _indicator, _granularity, _live, _historical_data_start_time, _order_units, _indicator_params)
     live_trader.start()
 
 
@@ -60,13 +60,13 @@ if __name__ == '__main__':
     pair: str = "EUR_USD"
     candlestick_granularity: Granularity = Granularity.S30
     price_granularity: Granularity = Granularity.S5
-    strategy: Strategy = Strategy.MA_CROSSOVER
-    strategy_params: Dict | None = {'short_window': 16, 'long_window': 64}
+    indicator: Indicator = Indicator.MA_CROSSOVER
+    indicator_params: Dict | None = {'short_window': 16, 'long_window': 64}
     live: bool = False
     order_units: int = 100000
     historical_data_start_time: datetime = datetime.now() - timedelta(days=1)
     live_data_store_process: Process = Process(target=start_live_data_store, args=(pair, candlestick_granularity, price_granularity))
-    live_trader_process: Process = Process(target=start_live_trader, args=(pair, strategy, candlestick_granularity, live, historical_data_start_time, order_units, strategy_params))
+    live_trader_process: Process = Process(target=start_live_trader, args=(pair, indicator, candlestick_granularity, live, historical_data_start_time, order_units, indicator_params))
     live_data_store_process.start()
     live_trader_process.start()
     live_data_store_process.join()

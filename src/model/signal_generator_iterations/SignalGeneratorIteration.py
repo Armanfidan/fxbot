@@ -6,13 +6,13 @@ from candle.Candle import Candle
 
 
 @dataclass
-class StrategyIteration:
+class SignalGeneratorIteration:
     candle: Candle
     signal: -1 | 0 | 1
 
     @override
     def __eq__(self, other):
-        if not isinstance(other, StrategyIteration):
+        if not isinstance(other, SignalGeneratorIteration):
             return False
         for key, value in vars(self).items():
             other_value = vars(other)[key]
