@@ -5,11 +5,11 @@ from typing import Dict
 import pika
 from pandas import DataFrame
 
-from DataClient import DataClient
-from Granularity import Granularity
-from OrderClient import OrderClient
-from signal_generators.SignalGenerator import SignalGenerator
-from Indicator import Indicator
+from src.client.DataClient import DataClient
+from src.client.OrderClient import OrderClient
+from src.service.signal_generators.SignalGenerator import SignalGenerator
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
 
 
 class LiveTrader:

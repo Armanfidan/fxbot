@@ -3,10 +3,10 @@ from typing import Literal, override, List
 
 from pandas import DataFrame
 
-from Granularity import Granularity
-from candle.Candle import Candle
-from signal_generators.SignalGenerator import SignalGenerator
-from signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
+from src.model.Granularity import Granularity
+from src.model.candle.Candle import Candle
+from src.service.signal_generators.SignalGenerator import SignalGenerator
+from src.model.signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 
 
 class MovingAverageCrossoverSignalGenerator(SignalGenerator):

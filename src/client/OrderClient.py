@@ -3,8 +3,8 @@ from typing import Literal
 
 import v20
 
-from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID
-from Order import TakeProfitOrder, StopLossOrder, TrailingStopLossOrder
+from src.util.Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID
+from src.model.Order import TakeProfitOrder, StopLossOrder, TrailingStopLossOrder
 
 MAX_CANDLESTICKS: int = 5000
 

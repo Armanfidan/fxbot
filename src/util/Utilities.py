@@ -6,10 +6,9 @@ from typing import List, Dict, Any
 import pandas as pd
 from pandas import DataFrame
 
-import candle.Price
-from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER, DATA_FOLDER
-from Granularity import Granularity
-from candle.Price import Price
+from src.util.Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER, DATA_FOLDER
+from src.model.Granularity import Granularity
+from src.model.candle.Price import Price, CANDLES_DF_COLUMNS
 
 
 def prepare_candle(_candle: Dict[str, Any]) -> Dict[str, float | datetime]:
@@ -42,7 +41,7 @@ def save_instruments_to_file(instruments: DataFrame):
 
 
 def validate_candles_df(candles: DataFrame) -> bool:
-    return list(candles.columns) == candle.Price.CANDLES_DF_COLUMNS
+    return list(candles.columns) == CANDLES_DF_COLUMNS
 
 
 def save_candles_to_file(candles: DataFrame, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime):

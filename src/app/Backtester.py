@@ -10,17 +10,18 @@ from pandas import DataFrame
 
 # from math import isnan
 
-from Constants import INSTRUMENTS_FILENAME
-from client.DataClient import DataClient
-from PlotProperties import PlotProperties
-from IndicatorEvaluation import IndicatorEvaluation
-# from Trade import Trade
-from signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-# from signal_generators.SignalGenerator import SignalGenerator
-from Utilities import get_downloaded_price_data_for_pair
-from Granularity import Granularity
-from Indicator import Indicator
-from CandlePlotter import CandlePlotter
+from src.client.DataClient import DataClient
+
+from src.util.Constants import INSTRUMENTS_FILENAME
+from src.util.PlotProperties import PlotProperties
+from src.util.IndicatorEvaluation import IndicatorEvaluation
+from src.util.Utilities import get_downloaded_price_data_for_pair
+from src.util.CandlePlotter import CandlePlotter
+from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
+# from src.service.signal_generators.SignalGenerator import SignalGenerator
+# from src.model.Trade import Trade
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal

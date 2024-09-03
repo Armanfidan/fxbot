@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import override
 
-from candle.Candle import Candle
+from src.model.candle.Candle import Candle
 
 
 @dataclass

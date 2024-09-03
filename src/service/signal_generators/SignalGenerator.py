@@ -5,10 +5,10 @@ import seaborn as sns
 
 from pandas import DataFrame
 
-from IndicatorEvaluation import IndicatorEvaluation
-from candle.Candle import Candle
-from Granularity import Granularity
-from signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
+from src.util.IndicatorEvaluation import IndicatorEvaluation
+from src.model.candle.Candle import Candle
+from src.model.Granularity import Granularity
+from src.model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
 
 pd.options.mode.chained_assignment = None
 sns.set_theme()

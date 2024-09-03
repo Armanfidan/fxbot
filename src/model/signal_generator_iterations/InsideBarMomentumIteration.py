@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from SignalGeneratorIteration import SignalGeneratorIteration
+from src.model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
 
 
 @dataclass

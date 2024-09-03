@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Dict
 
-import Utilities
-from DataClient import DataClient
-from LiveDataStore import LiveDataStore
-from app.RealTimeTrader import LiveTrader
-from Granularity import Granularity
-from Indicator import Indicator
+import src.util.Utilities as Utilities
+from src.client.DataClient import DataClient
+from src.service.LiveDataStore import LiveDataStore
+from src.app.RealTimeTrader import LiveTrader
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
 
 from multiprocessing import Process
 

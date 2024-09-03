@@ -5,7 +5,7 @@ from typing import Literal
 
 from pandas import Series
 
-from candle.Price import Price
+from src.model.candle.Price import Price
 
 
 class Trade:

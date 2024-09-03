@@ -1,7 +1,7 @@
 # from pandas import DataFrame
 #
-# from signal_generators.SignalGenerator import SignalGenerator
-# from signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
+# from src.service.signal_generators.SignalGenerator import SignalGenerator
+# from src.model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration
 #
 #
 # ENTRY_PRICE_MUL = 0.1
