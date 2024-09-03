@@ -100,8 +100,8 @@ class TestMovingAverageCrossoverSignalGenerator:
                                                          - (initial_data.iloc[0]['mid_c'] / long_window)
                                                          + (candle.mid_c / long_window))
         assert signal_generator.current_short_average == (prev_short_average
-                                                         - (initial_data.iloc[long_window - short_window - 1]['mid_c'] / short_window)
-                                                         + (candle.mid_c / short_window))
+                                                          - (initial_data.iloc[long_window - short_window - 1]['mid_c'] / short_window)
+                                                          + (candle.mid_c / short_window))
         iteration = MovingAverageCrossoverIteration(candle=candle,
                                                     signal=0,
                                                     long_average=signal_generator.current_long_average,
@@ -109,6 +109,10 @@ class TestMovingAverageCrossoverSignalGenerator:
         assert len(signal_generator.queue) == long_window + 1
         assert signal_generator.queue.pop() == iteration
 
-
-    def test_iterate(self):
-        pytest.fail()
+    def test_generate_signals_for_backtesting(self, signal_generator_params: Dict[str, Any]):
+        candle_data: DataFrame = pd.read_csv('service/signal_generators/candle_data.csv')
+        signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params, initial_candles=None)
+        assert not signal_generator.queue
+        signal_generator.generate_signals_for_backtesting(candle_data, use_pips=True)
+        assert len(signal_generator.queue) == candle_data.shape[0]
+        assert signal_generator.queue[-1].candle.time == candle_data.iloc[-1]['time']
