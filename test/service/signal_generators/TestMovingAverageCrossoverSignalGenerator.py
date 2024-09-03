@@ -4,9 +4,10 @@ import pandas as pd
 import pytest
 from pandas import DataFrame
 
-from Granularity import Granularity
-from candle.Candle import Candle
-from signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
+from model.Granularity import Granularity
+from model.candle.Candle import Candle
+from service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
+from model.strategy_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 
 
 @pytest.fixture
@@ -37,14 +38,16 @@ class TestMovingAverageCrossoverSignalGenerator:
     def test_candles_queue_gets_populated_from_df(self, signal_generator_params: Dict[str, Any],
                                                   candle_data: Tuple[DataFrame, DataFrame]):
         initial_data, _ = candle_data
-        signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params, initial_candles=initial_data)
+        signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params,
+                                                                 initial_candles=initial_data)
         assert len(signal_generator.queue) == initial_data.shape[0]
         assert signal_generator.queue[-1].candle.time == initial_data.iloc[-1]['time']
 
     def test_generate_signal(self, signal_generator_params):
         assert True
 
-    def test_iterate_queue_when_not_full(self, signal_generator_params: Dict[str, Any], candle_data: Tuple[DataFrame, DataFrame]):
+    def test_iterate_when_not_full(self, signal_generator_params: Dict[str, Any],
+                                   candle_data: Tuple[DataFrame, DataFrame]):
         initial_data, _ = candle_data
         signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params, initial_candles=None)
         # Given that queues are empty and averages are zero
@@ -52,17 +55,60 @@ class TestMovingAverageCrossoverSignalGenerator:
         assert len(signal_generator.short_candles_queue) == 0
         assert signal_generator.current_long_average == 0
         assert signal_generator.current_short_average == 0
-        # When the next candle is retrieved and both queues are iterated
+        # When the next candle is retrieved and the generator is iterated
         candle: Candle = Candle.from_dict(initial_data.iloc[0])
-        signal_generator._iterate_queue(candle, window_type='short')
-        signal_generator._iterate_queue(candle, window_type='long')
-        # Then both queues and averages should update.
+        signal_generator.iterate(candle)
+        # Then the long candles queue and average should update.
         assert len(signal_generator.long_candles_queue) == 1
         assert signal_generator.long_candles_queue.pop() == candle
         assert signal_generator.current_long_average == candle.mid_c / signal_generator.long_window
+        # Then the short candles queue and average should update.
         assert len(signal_generator.short_candles_queue) == 1
         assert signal_generator.short_candles_queue.pop() == candle
         assert signal_generator.current_short_average == candle.mid_c / signal_generator.short_window
+        # Then the StrategyIteration queue should update.
+        iteration = MovingAverageCrossoverIteration(candle=candle,
+                                                    signal=0,
+                                                    long_average=candle.mid_c / signal_generator.long_window,
+                                                    short_average=candle.mid_c / signal_generator.short_window)
+        assert len(signal_generator.queue) == 1
+        assert signal_generator.queue.pop() == iteration
+
+    def test_iterate_queue_when_full(self, signal_generator_params: Dict[str, Any],
+                                     candle_data: Tuple[DataFrame, DataFrame]):
+        initial_data, new_data = candle_data
+        long_window = signal_generator_params['long_window']
+        short_window = signal_generator_params['short_window']
+        signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params, initial_candles=initial_data)
+        # Given that both queues are full and averages are not zero
+        assert len(signal_generator.long_candles_queue) == long_window
+        assert len(signal_generator.short_candles_queue) == short_window
+        prev_long_average: float = signal_generator.current_long_average
+        prev_short_average: float = signal_generator.current_short_average
+        assert prev_long_average != 0
+        assert prev_short_average != 0
+        assert len(signal_generator.queue) == long_window
+        # When the next candle is retrieved and the generator is iterated
+        candle: Candle = Candle.from_dict(new_data.iloc[0])
+        signal_generator.iterate(candle)
+        # Then both queues and averages should update.
+        assert len(signal_generator.long_candles_queue) == long_window
+        assert len(signal_generator.short_candles_queue) == short_window
+        assert signal_generator.long_candles_queue.pop() == candle
+        assert signal_generator.short_candles_queue.pop() == candle
+        assert signal_generator.current_long_average == (prev_long_average
+                                                         - (initial_data.iloc[0]['mid_c'] / long_window)
+                                                         + (candle.mid_c / long_window))
+        assert signal_generator.current_short_average == (prev_short_average
+                                                         - (initial_data.iloc[long_window - short_window - 1]['mid_c'] / short_window)
+                                                         + (candle.mid_c / short_window))
+        iteration = MovingAverageCrossoverIteration(candle=candle,
+                                                    signal=0,
+                                                    long_average=signal_generator.current_long_average,
+                                                    short_average=signal_generator.current_short_average)
+        assert len(signal_generator.queue) == long_window + 1
+        assert signal_generator.queue.pop() == iteration
+
 
     def test_iterate(self):
         pytest.fail()

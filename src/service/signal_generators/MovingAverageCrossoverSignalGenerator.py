@@ -26,7 +26,7 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
         self.long_candles_queue: deque[Candle] = deque(maxlen=self.long_window)
         self.short_candles_queue: deque[Candle] = deque(maxlen=self.short_window)
         # Initialise queue if initial data was provided
-        if self.queue and isinstance(initial_candles, DataFrame):
+        if isinstance(initial_candles, DataFrame):
             self.iterate_from_dataframe(initial_candles)
 
     def generate_signal(self) -> int:
@@ -54,17 +54,17 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
         """
         # Defining variables based on window
         window: int = vars(self)[window_type + '_window']
-        queue: deque[Candle] = vars(self)[window_type + '_candles_queue']
+        candles_queue: deque[Candle] = vars(self)[window_type + '_candles_queue']
         # Updating the averages
         if window_type == "long":
-            if len(queue) >= window:
-                self.current_long_average -= queue.popleft().mid_c / window
+            if len(candles_queue) >= window:
+                self.current_long_average -= candles_queue.popleft().mid_c / window
             self.current_long_average += candle.mid_c / window
         else:
-            if len(queue) >= window:
-                self.current_short_average -= queue.popleft().mid_c / window
+            if len(candles_queue) >= window:
+                self.current_short_average -= candles_queue.popleft().mid_c / window
             self.current_short_average += candle.mid_c / window
-        queue.append(candle)
+        candles_queue.append(candle)
 
     @override
     def iterate(self, candle: Candle) -> None:

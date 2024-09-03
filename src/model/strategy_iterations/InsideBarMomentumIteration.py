@@ -4,7 +4,7 @@ from StrategyIteration import StrategyIteration
 
 
 @dataclass
-class MovingAverageCrossoverIteration(StrategyIteration):
+class InsideBarMomentumIteration(StrategyIteration):
     range_prev: float
     mid_h_prev: float
     mid_l_prev: float
