@@ -77,10 +77,8 @@ class Backtester:
     def create_results_df(results: List[IndicatorEvaluation]) -> DataFrame:
         results_dicts: List[Dict[str, str]] = []
         for result in results:
-            result_dict: Dict[str, str] = vars(result) | result.params
-            result_dict['indicator'] = result.indicator.value
-            result_dict.pop('params')
-            result_dict.pop('trades')
+            result_dict: Dict[str, str] = vars(result)
+            result_dict.pop('signals')
             results_dicts.append(result_dict)
         results_df: DataFrame = DataFrame(results_dicts)
         return results_df.set_index('pair')
@@ -123,7 +121,7 @@ class Backtester:
             results.append(signal_generator.evaluate_indicator())
             # Save data to be plotted
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                self.plot_data[(pair, short_window, long_window)] = signal_generator.queue.copy()
+                self.plot_data[(pair, short_window, long_window)] = signal_generator.generate_signals_dataframe()
 
     # TODO: Implement the signal generator for this indicator and re-enable backtesting
     # def simulate_inside_bar_momentum(self,

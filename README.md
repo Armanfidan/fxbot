@@ -17,7 +17,8 @@ New metrics can also be implemented in the future. For the Sharpe ratio, the ris
 To set up the project, follow the following steps:
 1. Clone the repository.
 2. Run `pip install -r requirements.txt`
-3. 
+3. Change `configuration/credentials_template.json` with your own OANDA API credentials and rename it to `credentials.json`.
+   Do not check this file into the repository. 
 
 ### Running backtesting locally
 The backtesting system has its entry point in `backtesting_main.py`.
@@ -27,8 +28,8 @@ To change the currencies, properties or indicators, edit this file.
 ### Running the real-time trading bot locally
 The real-time trading bot has its entry point in `real_time_trading_main.py`.
 This system depends on a messaging queue, RabbitMQ, to run. To run this, follow these steps:
-1. Install RabbitMQ. Follow the instructions on [this page](https://www.rabbitmq.com/docs/download).If on MacOS, you 
-   If on MacOS, you can run `brew install rabbitmq` to install this.
+1. Install RabbitMQ. Follow the instructions on [this page](https://www.rabbitmq.com/docs/download).If on macOS, you 
+   If on macOS, you can run `brew install rabbitmq` to install this.
 2. Start the message queue broker by running `rabbitmq-server`.
 3. Then run `python3 real_time_trading_main.py` to start the services.
 

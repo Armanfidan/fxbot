@@ -1,4 +1,5 @@
 from collections import deque
+
 import pandas as pd
 import seaborn as sns
 
@@ -40,6 +41,7 @@ class SignalGenerator:
         """
         raise NotImplementedError("Please implement method before iterating the signal generator.")
 
+    # TODO: Use use_pips
     def generate_signals_for_backtesting(self, candles: DataFrame, use_pips: bool) -> None:
         """
         Generate signals based on a pre-defined indicator. Use this to generate all signals in one go, for backtesting.
@@ -50,6 +52,11 @@ class SignalGenerator:
         if self.queue:
             raise ValueError("Please do not initialise the iteration queue if backtesting.")
         self.iterate_from_dataframe(candles)
+
+    def generate_signals_dataframe(self) -> DataFrame:
+        if not self.queue:
+            raise ValueError("Please iterate the signal generator before attempting to retrieve signals.")
+        return DataFrame([vars(iteration.candle) | {"signal": iteration.signal} for iteration in self.queue])
 
     def evaluate_indicator(self) -> IndicatorEvaluation:
         """
@@ -75,8 +82,6 @@ class SignalGenerator:
         """
         indicator_evaluation: IndicatorEvaluation = IndicatorEvaluation(
             pair=self.pair,
-            strategy=self.indicator,
-            params=self.params,
-            signals=self.signals,
+            signals=self.generate_signals_dataframe(),
         )
         return indicator_evaluation

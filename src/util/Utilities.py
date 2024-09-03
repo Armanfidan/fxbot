@@ -12,17 +12,17 @@ from Granularity import Granularity
 from candle.Price import Price
 
 
-def prepare_candle(candle: Dict[str, Any]) -> Dict[str, float | datetime]:
+def prepare_candle(_candle: Dict[str, Any]) -> Dict[str, float | datetime]:
     """
     Flatten a candle dictionary.
-    :param candle: The candle to flatten. Do not pass the Candlestick object - rather do vars(candle) before passing.
+    :param _candle: The candle to flatten. Do not pass the Candlestick object - rather do vars(candle) before passing.
     :return: The flattened candle.
     """
     prices: List[str] = ['mid', 'bid', 'ask']
     candle_dict: Dict[str, float] = {}
     for price in prices:
-        candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(candle[price]).items()})
-    return {'time': datetime.fromtimestamp(float(candle['time'])), 'volume': float(candle['volume'])} | candle_dict
+        candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(_candle[price]).items()})
+    return {'time': datetime.fromtimestamp(float(_candle['time'])), 'volume': float(_candle['volume'])} | candle_dict
 
 
 def instruments_file_exists() -> bool:
