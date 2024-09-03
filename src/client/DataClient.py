@@ -15,7 +15,7 @@ from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_K
 from Utilities import prepare_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
 from Granularity import Granularity
 
-from warnings import deprecated
+from typing_extensions import deprecated
 
 MAX_CANDLESTICKS: int = 5000
 

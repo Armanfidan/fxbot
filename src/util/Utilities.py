@@ -7,10 +7,8 @@ import pandas as pd
 from pandas import DataFrame
 
 import candle.Price
-from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER
+from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER, DATA_FOLDER
 from Granularity import Granularity
-from candle.CandlePrice import CandlePrice
-from candle.CandleType import CandleType
 from candle.Price import Price
 
 
@@ -24,7 +22,7 @@ def prepare_candle(candle: Dict[str, Any]) -> Dict[str, float | datetime]:
     candle_dict: Dict[str, float] = {}
     for price in prices:
         candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(candle[price]).items()})
-    return {'time': datetime.fromtimestamp(candle['time']), 'volume': float(candle['volume'])} | candle_dict
+    return {'time': datetime.fromtimestamp(float(candle['time'])), 'volume': float(candle['volume'])} | candle_dict
 
 
 def instruments_file_exists() -> bool:
@@ -37,6 +35,7 @@ def save_instruments_to_file(instruments: DataFrame):
     :param instruments: DF containing candles.
     """
     try:
+        os.makedirs(DATA_FOLDER, exist_ok=True)
         instruments.to_pickle(INSTRUMENTS_FILENAME)
     except Exception as e:
         raise IOError("Could not save instruments to file. Error: {}".format(e))
@@ -86,5 +85,3 @@ def get_downloaded_price_data_for_pair(pair: str, granularity: Granularity, from
     return candles
 
 
-def get_candle_column(candle_type: CandleType, candle_schema: CandlePrice) -> str:
-    return "{}_{}".format(candle_type.value, candle_schema.value)
