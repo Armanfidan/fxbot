@@ -3,20 +3,20 @@ from __future__ import annotations
 from datetime import datetime
 import itertools
 import sys
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple
 
 import pandas as pd
 from pandas import DataFrame
 
-from math import isnan
+# from math import isnan
 
 from Constants import INSTRUMENTS_FILENAME
 from client.DataClient import DataClient
 from PlotProperties import PlotProperties
 from IndicatorEvaluation import IndicatorEvaluation
-from Trade import Trade
+# from Trade import Trade
 from signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-from signal_generators.SignalGenerator import SignalGenerator
+# from signal_generators.SignalGenerator import SignalGenerator
 from Utilities import get_downloaded_price_data_for_pair
 from Granularity import Granularity
 from Indicator import Indicator
@@ -125,68 +125,69 @@ class Backtester:
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
                 self.plot_data[(pair, short_window, long_window)] = signal_generator.queue.copy()
 
-    def simulate_inside_bar_momentum(self,
-                                     pair: str,
-                                     results: List[IndicatorEvaluation],
-                                     signal_generator: SignalGenerator,
-                                     simulation_granularity: Granularity,
-                                     from_time: datetime,
-                                     to_time: datetime,
-                                     use_only_downloaded_price_data: bool):
-        if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
-            raise ValueError("The simulation granularity is too coarse for te inside bar momentum simulation. Please choose a granularity finer than M5.")
-        signal_generator.generate_signals_for_backtesting(use_pips=True)
-        simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
-        simulation_data = self.sort_and_reset(simulation_data)
-
-        signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
-        sim_data_tmp: DataFrame = pd.merge_asof(signal_generator.signals[signal_cols], simulation_data, on='time', tolerance=simulation_granularity.value, direction='nearest')
-        simulation_data = simulation_data.merge(sim_data_tmp[signal_cols], how='left', on='time')
-        del sim_data_tmp
-        simulation_data = self.sort_and_reset(simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:])  # Remove candles until the first trade, won't make a diff.
-
-        non_materialised_trades: List[Dict[str, Any]] = []
-        closed_trades: List[Dict[str, Any]] = []
-        current_trade: Trade | None = Trade(simulation_data.iloc[0])
-        closed_trade_already_saved: bool = False
-
-        for index, row in simulation_data.iterrows():
-            # Our trade is closed and there are no new trades. Keep skipping.
-            if closed_trade_already_saved and isnan(row['signal']):
-                continue
-
-            current_trade.update(row)
-
-            # --- CASE WHEN WE HAVE A NEW TRADE. ---
-            if not isnan(row['signal']):
-                if current_trade.is_open():  # Check whether the previous trade is open.
-                    current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
-                    non_materialised_trades.append(vars(current_trade))
-                current_trade = Trade(row)  # Create a new trade from the current row.
-                closed_trade_already_saved = False  # New trade! Not already saved.
-                continue  # We don't want to update the trade (We just opened it), so skip the rest.
-
-            # --- CASE WHEN THE TRADE IS CLOSED ---
-            if current_trade.exit_time is not None and not closed_trade_already_saved:
-                closed_trades.append(vars(current_trade))
-                closed_trade_already_saved = True
-
-        closed_trades_df: DataFrame = DataFrame(closed_trades)
-        closed_trades_df['trade_closed'] = True
-        non_materialised_trades_df: DataFrame = DataFrame(non_materialised_trades)
-        non_materialised_trades_df.drop(columns=['signal', 'entry_stop', 'stop_loss', 'take_profit', '_Trade__trade_is_open'], inplace=True)
-        non_materialised_trades_df['trade_closed'] = False
-
-        simulation_data = simulation_data.merge(closed_trades_df[['time', 'entry_time', 'entry_price', 'exit_time', 'exit_price', 'trade_closed']], how='left', on='time')
-        simulation_data = simulation_data[~simulation_data['time'].isin(list(non_materialised_trades_df['time']))]
-        simulation_data = self.sort_and_reset(pd.concat([simulation_data, non_materialised_trades_df]))
-
-        signal_generator.set_candles_df(simulation_data)
-        signal_generator.generate_inside_bar_momentum_signal_detail_columns(use_pips=True)
-        results.append(signal_generator.evaluate_indicator())
-        # Save data to be plotted
-        if pair in self.data_range_for_plotting.currency_pairs:
-            self.plot_data[pair] = signal_generator.queue.copy()
+    # TODO: Implement the signal generator for this indicator and re-enable backtesting
+    # def simulate_inside_bar_momentum(self,
+    #                                  pair: str,
+    #                                  results: List[IndicatorEvaluation],
+    #                                  signal_generator: SignalGenerator,
+    #                                  simulation_granularity: Granularity,
+    #                                  from_time: datetime,
+    #                                  to_time: datetime,
+    #                                  use_only_downloaded_price_data: bool):
+    #     if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
+    #         raise ValueError("The simulation granularity is too coarse for te inside bar momentum simulation. Please choose a granularity finer than M5.")
+    #     signal_generator.generate_signals_for_backtesting(use_pips=True)
+    #     simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
+    #     simulation_data = self.sort_and_reset(simulation_data)
+    #
+    #     signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
+    #     sim_data_tmp: DataFrame = pd.merge_asof(signal_generator.signals[signal_cols], simulation_data, on='time', tolerance=simulation_granularity.value, direction='nearest')
+    #     simulation_data = simulation_data.merge(sim_data_tmp[signal_cols], how='left', on='time')
+    #     del sim_data_tmp
+    #     simulation_data = self.sort_and_reset(simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:])  # Remove candles until the first trade, won't make a diff.
+    #
+    #     non_materialised_trades: List[Dict[str, Any]] = []
+    #     closed_trades: List[Dict[str, Any]] = []
+    #     current_trade: Trade | None = Trade(simulation_data.iloc[0])
+    #     closed_trade_already_saved: bool = False
+    #
+    #     for index, row in simulation_data.iterrows():
+    #         # Our trade is closed and there are no new trades. Keep skipping.
+    #         if closed_trade_already_saved and isnan(row['signal']):
+    #             continue
+    #
+    #         current_trade.update(row)
+    #
+    #         # --- CASE WHEN WE HAVE A NEW TRADE. ---
+    #         if not isnan(row['signal']):
+    #             if current_trade.is_open():  # Check whether the previous trade is open.
+    #                 current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
+    #                 non_materialised_trades.append(vars(current_trade))
+    #             current_trade = Trade(row)  # Create a new trade from the current row.
+    #             closed_trade_already_saved = False  # New trade! Not already saved.
+    #             continue  # We don't want to update the trade (We just opened it), so skip the rest.
+    #
+    #         # --- CASE WHEN THE TRADE IS CLOSED ---
+    #         if current_trade.exit_time is not None and not closed_trade_already_saved:
+    #             closed_trades.append(vars(current_trade))
+    #             closed_trade_already_saved = True
+    #
+    #     closed_trades_df: DataFrame = DataFrame(closed_trades)
+    #     closed_trades_df['trade_closed'] = True
+    #     non_materialised_trades_df: DataFrame = DataFrame(non_materialised_trades)
+    #     non_materialised_trades_df.drop(columns=['signal', 'entry_stop', 'stop_loss', 'take_profit', '_Trade__trade_is_open'], inplace=True)
+    #     non_materialised_trades_df['trade_closed'] = False
+    #
+    #     simulation_data = simulation_data.merge(closed_trades_df[['time', 'entry_time', 'entry_price', 'exit_time', 'exit_price', 'trade_closed']], how='left', on='time')
+    #     simulation_data = simulation_data[~simulation_data['time'].isin(list(non_materialised_trades_df['time']))]
+    #     simulation_data = self.sort_and_reset(pd.concat([simulation_data, non_materialised_trades_df]))
+    #
+    #     signal_generator.set_candles_df(simulation_data)
+    #     signal_generator.generate_inside_bar_momentum_signal_detail_columns(use_pips=True)
+    #     results.append(signal_generator.evaluate_indicator())
+    #     # Save data to be plotted
+    #     if pair in self.data_range_for_plotting.currency_pairs:
+    #         self.plot_data[pair] = signal_generator.queue.copy()
 
     @staticmethod
     def sort_and_reset(simulation_data):
@@ -236,8 +237,8 @@ class Backtester:
             if self.indicator == Indicator.MA_CROSSOVER:
                 self.simulate_ma_crossover(ma_windows, pair, pip_location, trade_granularity, price_data, results)
 
-            elif self.indicator == Indicator.INSIDE_BAR_MOMENTUM:
-                self.simulate_inside_bar_momentum(pair, results, signal_generator, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
+            # elif self.indicator == Indicator.INSIDE_BAR_MOMENTUM:
+            #     self.simulate_inside_bar_momentum(pair, results, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
 
         results_df = self.create_results_df(results)
         self.save_results(results_df, file_type)
