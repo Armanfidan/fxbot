@@ -10,17 +10,18 @@ from pandas import DataFrame
 
 # from math import isnan
 
-from Constants import INSTRUMENTS_FILENAME
-from client.DataClient import DataClient
-from PlotProperties import PlotProperties
-from IndicatorEvaluation import IndicatorEvaluation
-# from Trade import Trade
-from signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-# from signal_generators.SignalGenerator import SignalGenerator
-from Utilities import get_downloaded_price_data_for_pair
-from Granularity import Granularity
-from Indicator import Indicator
-from CandlePlotter import CandlePlotter
+from src.client.DataClient import DataClient
+
+from src.util.Constants import INSTRUMENTS_FILENAME
+from src.util.PlotProperties import PlotProperties
+from src.util.IndicatorEvaluation import IndicatorEvaluation
+from src.util.Utilities import get_downloaded_price_data_for_pair
+from src.util.CandlePlotter import CandlePlotter
+from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
+# from src.service.signal_generators.SignalGenerator import SignalGenerator
+# from src.model.Trade import Trade
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal
@@ -77,10 +78,8 @@ class Backtester:
     def create_results_df(results: List[IndicatorEvaluation]) -> DataFrame:
         results_dicts: List[Dict[str, str]] = []
         for result in results:
-            result_dict: Dict[str, str] = vars(result) | result.params
-            result_dict['indicator'] = result.indicator.value
-            result_dict.pop('params')
-            result_dict.pop('trades')
+            result_dict: Dict[str, str] = vars(result)
+            result_dict.pop('signals')
             results_dicts.append(result_dict)
         results_df: DataFrame = DataFrame(results_dicts)
         return results_df.set_index('pair')
@@ -123,7 +122,7 @@ class Backtester:
             results.append(signal_generator.evaluate_indicator())
             # Save data to be plotted
             if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                self.plot_data[(pair, short_window, long_window)] = signal_generator.queue.copy()
+                self.plot_data[(pair, short_window, long_window)] = signal_generator.generate_signals_dataframe()
 
     # TODO: Implement the signal generator for this indicator and re-enable backtesting
     # def simulate_inside_bar_momentum(self,

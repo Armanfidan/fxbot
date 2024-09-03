@@ -1,7 +1,7 @@
 from enum import Enum
 
-from candle.CandlePrice import CandlePrice
-from candle.CandleType import CandleType
+from src.model.candle.CandlePrice import CandlePrice
+from src.model.candle.CandleType import CandleType
 
 
 def get_candle_column(candle_type: CandleType, candle_schema: CandlePrice) -> str:

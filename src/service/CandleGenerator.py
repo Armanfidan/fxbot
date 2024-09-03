@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict
 
-from candle.Candle import Candle
-from Granularity import Granularity
-from Quote import Quote
+from src.model.candle.Candle import Candle
+from src.model.Granularity import Granularity
+from src.model.Quote import Quote
 
 
 class CandleGenerator:

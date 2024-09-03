@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List
 
-import Utilities
-from DataClient import DataClient
-from PlotProperties import PlotProperties
-from app.Backtester import Backtester
-from Granularity import Granularity
-from Indicator import Indicator
+import src.util.Utilities as Utilities
+from src.client.DataClient import DataClient
+from src.util.PlotProperties import PlotProperties
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
+from src.app.Backtester import Backtester
 
 
 def simulate_pairs(currencies: List[str]):

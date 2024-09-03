@@ -9,11 +9,10 @@ import v20
 import pandas as pd
 from pandas import DataFrame
 
-from candle.Candle import Candle
-from Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, \
-    INSTRUMENTS_FILENAME
-from Utilities import prepare_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
-from Granularity import Granularity
+from src.util.Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, INSTRUMENTS_FILENAME
+from src.util.Utilities import prepare_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
+from src.model.Granularity import Granularity
+from src.model.candle.Candle import Candle
 
 from typing_extensions import deprecated
 

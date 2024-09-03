@@ -1,13 +1,16 @@
+import os
 from typing import Any, Dict, Tuple
 
 import pandas as pd
 import pytest
 from pandas import DataFrame
 
-from model.Granularity import Granularity
-from model.candle.Candle import Candle
-from service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-from model.signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
+from src.model.Granularity import Granularity
+from src.model.candle.Candle import Candle
+from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
+from src.model.signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
+
+CANDLE_DATA_FILE = '{}/candle_data.csv'.format(os.path.dirname(__file__))
 
 
 @pytest.fixture
@@ -23,7 +26,7 @@ def signal_generator_params():
 
 @pytest.fixture
 def candle_data(signal_generator_params):
-    historical_data: DataFrame = pd.read_csv('service/signal_generators/candle_data.csv')
+    historical_data: DataFrame = pd.read_csv(CANDLE_DATA_FILE)
     initial_data: DataFrame = historical_data.iloc[:signal_generator_params['long_window']]
     new_data: DataFrame = historical_data.iloc[signal_generator_params['long_window']:]
     yield initial_data, new_data
@@ -110,7 +113,7 @@ class TestMovingAverageCrossoverSignalGenerator:
         assert signal_generator.queue.pop() == iteration
 
     def test_generate_signals_for_backtesting(self, signal_generator_params: Dict[str, Any]):
-        candle_data: DataFrame = pd.read_csv('service/signal_generators/candle_data.csv')
+        candle_data: DataFrame = pd.read_csv(CANDLE_DATA_FILE)
         signal_generator = MovingAverageCrossoverSignalGenerator(**signal_generator_params, initial_candles=None)
         assert not signal_generator.queue
         signal_generator.generate_signals_for_backtesting(candle_data, use_pips=True)

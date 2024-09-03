@@ -2,10 +2,10 @@ from time import sleep
 
 import pika
 
-from candle.Candle import Candle
-from CandleGenerator import CandleGenerator
-from Granularity import Granularity
-from client.DataClient import DataClient
+from src.model.candle.Candle import Candle
+from src.model.Granularity import Granularity
+from src.service.CandleGenerator import CandleGenerator
+from src.client.DataClient import DataClient
 
 
 class LiveDataStore:

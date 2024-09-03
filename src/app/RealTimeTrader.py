@@ -5,11 +5,11 @@ from typing import Dict
 import pika
 from pandas import DataFrame
 
-from DataClient import DataClient
-from Granularity import Granularity
-from OrderClient import OrderClient
-from signal_generators.SignalGenerator import SignalGenerator
-from Indicator import Indicator
+from src.client.DataClient import DataClient
+from src.client.OrderClient import OrderClient
+from src.service.signal_generators.SignalGenerator import SignalGenerator
+from src.model.Granularity import Granularity
+from src.model.Indicator import Indicator
 
 
 class LiveTrader:
@@ -28,7 +28,7 @@ class LiveTrader:
         self.historical_data_start_time: datetime = historical_data_start_time
         self.candles: DataFrame = self._get_initial_price_data()
         pip_location: float = DataClient.get_pip_location(pair)
-        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles, indicator)
+        self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles)
         self.signal_generator.generate_signals_for_backtesting(use_pips=True, **self.indicator_params)
 
         self.order_client: OrderClient = OrderClient(live=live)

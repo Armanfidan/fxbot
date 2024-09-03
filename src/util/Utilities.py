@@ -6,23 +6,22 @@ from typing import List, Dict, Any
 import pandas as pd
 from pandas import DataFrame
 
-import candle.Price
-from Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER, DATA_FOLDER
-from Granularity import Granularity
-from candle.Price import Price
+from src.util.Constants import INSTRUMENTS_FILENAME, CANDLE_FOLDER, DATA_FOLDER
+from src.model.Granularity import Granularity
+from src.model.candle.Price import Price, CANDLES_DF_COLUMNS
 
 
-def prepare_candle(candle: Dict[str, Any]) -> Dict[str, float | datetime]:
+def prepare_candle(_candle: Dict[str, Any]) -> Dict[str, float | datetime]:
     """
     Flatten a candle dictionary.
-    :param candle: The candle to flatten. Do not pass the Candlestick object - rather do vars(candle) before passing.
+    :param _candle: The candle to flatten. Do not pass the Candlestick object - rather do vars(candle) before passing.
     :return: The flattened candle.
     """
     prices: List[str] = ['mid', 'bid', 'ask']
     candle_dict: Dict[str, float] = {}
     for price in prices:
-        candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(candle[price]).items()})
-    return {'time': datetime.fromtimestamp(float(candle['time'])), 'volume': float(candle['volume'])} | candle_dict
+        candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(_candle[price]).items()})
+    return {'time': datetime.fromtimestamp(float(_candle['time'])), 'volume': float(_candle['volume'])} | candle_dict
 
 
 def instruments_file_exists() -> bool:
@@ -42,7 +41,7 @@ def save_instruments_to_file(instruments: DataFrame):
 
 
 def validate_candles_df(candles: DataFrame) -> bool:
-    return list(candles.columns) == candle.Price.CANDLES_DF_COLUMNS
+    return list(candles.columns) == CANDLES_DF_COLUMNS
 
 
 def save_candles_to_file(candles: DataFrame, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime):

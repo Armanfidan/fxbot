@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Set
+from typing import Dict, Set, List
 
 
 @dataclass
@@ -25,10 +25,14 @@ class Candle:
 
     @staticmethod
     def from_dict(candle_dict: Dict[str, datetime | float]):
-        candle_keys: Set[str] = set(vars(Candle(datetime.now())).keys())
+        candle_keys: Set[str] = set(Candle.columns())
         # if candle_dict.keys() != vars(Candle(datetime.now())).keys():
         #     raise ValueError("Invalid candle data: {}".format(candle_dict))
         return Candle(**{key: value for key, value in candle_dict.items() if key in candle_keys})
+
+    @staticmethod
+    def columns() -> List[str]:
+        return list(vars(Candle(datetime.now())).keys())
 
     def __str__(self):
         non_null_vars = {key: value for key, value in vars(self).items() if value is not None}
