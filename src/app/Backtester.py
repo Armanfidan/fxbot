@@ -14,9 +14,9 @@ from src.client.OandaDataClient import OandaDataClient
 
 from src.util.Constants import INSTRUMENTS_FILENAME
 from src.util.PlotProperties import PlotProperties
-from src.util.IndicatorEvaluator import IndicatorEvaluator
 from src.util.Utilities import get_downloaded_price_data_for_pair
 from src.util.CandlePlotter import CandlePlotter
+from src.service.IndicatorEvaluator import IndicatorEvaluator
 from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
 # from src.service.signal_generators.SignalGenerator import SignalGenerator
 # from src.model.Trade import Trade
