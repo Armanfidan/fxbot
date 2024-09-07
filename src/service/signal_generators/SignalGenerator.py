@@ -5,7 +5,7 @@ import seaborn as sns
 
 from pandas import DataFrame
 
-from src.util.IndicatorEvaluator import IndicatorEvaluator
+from src.service.IndicatorEvaluator import IndicatorEvaluator
 from src.model.candle.Candle import Candle
 from src.model.Granularity import Granularity
 from src.model.signal_generator_iterations.SignalGeneratorIteration import SignalGeneratorIteration

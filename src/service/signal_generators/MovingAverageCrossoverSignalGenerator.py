@@ -25,6 +25,7 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
         # Set queues
         self.long_candles_queue: deque[Candle] = deque(maxlen=self.long_window)
         self.short_candles_queue: deque[Candle] = deque(maxlen=self.short_window)
+        self.first_signal: bool = True
         # Initialise queue if initial data was provided
         if isinstance(initial_candles, DataFrame):
             self.iterate_from_dataframe(initial_candles)
@@ -34,13 +35,14 @@ class MovingAverageCrossoverSignalGenerator(SignalGenerator):
         Generates a signal for the latest short and long total values.
         :return: A signal: 1 for buy, -1 for sell and 0 for nothing.
         """
-        if not self.short_candles_queue or self.long_candles_queue:
+        if not self.short_candles_queue or not self.long_candles_queue or not self.queue:
             return 0
         previous_difference = self.queue[-1].short_average - self.queue[-1].long_average
         current_difference = self.current_short_average - self.current_long_average
-        if current_difference <= 0 < previous_difference:
+        if (current_difference <= 0 < previous_difference) and not self.first_signal:
             return -1
         if previous_difference < 0 <= current_difference:
+            self.first_signal = False
             return 1
         return 0
 
