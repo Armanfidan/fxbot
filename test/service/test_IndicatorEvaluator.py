@@ -19,16 +19,22 @@ class TestIndicatorEvaluator:
     def test_calculates_roi_correctly(self, signals: Tuple[DataFrame, DataFrame]):
         pass
 
-    def test_compares_to_index_correctly(self, signals: Tuple[DataFrame, DataFrame]):
-        pass
-
     def test_calculates_standard_deviation_correctly(self, signals: Tuple[DataFrame, DataFrame]):
         pass
 
-    def test_calculates_sharpe_ratio_correctly(self, signals: Tuple[DataFrame, DataFrame]):
+    def test_calculates_mean_correctly(self, signals: Tuple[DataFrame, DataFrame]):
+        pass
+
+    def test_calculates_annualised_sharpe_ratio_correctly(self, signals: Tuple[DataFrame, DataFrame]):
+        pass
+
+    def test_calculates_annualised_sortino_ratio_correctly(self, signals: Tuple[DataFrame, DataFrame]):
         pass
 
     def test_calculates_max_drawdown_correctly(self, signals: Tuple[DataFrame, DataFrame]):
+        pass
+
+    def test_calculates_annualised_calmar_ratio_correctly(self, signals: Tuple[DataFrame, DataFrame]):
         pass
 
     def test_calculates_profit_to_drawdown_ratio_correctly(self, signals: Tuple[DataFrame, DataFrame]):
