@@ -1,3 +1,6 @@
 /.idea/
 /data/*
 /configuration/credentials.json
+__pycache__/
+.pytest_cache/
+/test_results/
