@@ -19,9 +19,9 @@ def test_pagination_is_inclusive_and_clips_incomplete_or_overfetched_bars(monkey
 
 
 def test_cache_read_clips_old_overfetched_files(monkeypatch):
-    from src.app.Backtester import Backtester
+    from src.app.MovingAverageCrossoverBacktester import MovingAverageCrossoverBacktester
     from src.util import Utilities
     data = pd.DataFrame({'time':pd.date_range('2024-01-01',periods=4,freq='4h')})
     monkeypatch.setattr(Utilities,'get_downloaded_price_data_for_pair',lambda *args:data)
-    result = Backtester().get_price_data_for_pair('EUR_GBP',G.H4,pd.Timestamp('2024-01-01T04:00Z'),pd.Timestamp('2024-01-01T13:00Z'),True)
+    result = MovingAverageCrossoverBacktester().get_price_data_for_pair('EUR_GBP',G.H4,pd.Timestamp('2024-01-01T04:00Z'),pd.Timestamp('2024-01-01T13:00Z'),True)
     assert result.time.tolist() == [pd.Timestamp('2024-01-01T04:00Z'),pd.Timestamp('2024-01-01T08:00Z')]
