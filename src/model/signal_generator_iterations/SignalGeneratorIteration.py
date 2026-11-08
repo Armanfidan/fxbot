@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import override
+from typing import override, Literal
 
 from src.model.candle.Candle import Candle
 
@@ -8,7 +8,7 @@ from src.model.candle.Candle import Candle
 @dataclass
 class SignalGeneratorIteration:
     candle: Candle
-    signal: -1 | 0 | 1
+    signal: Literal[-1, 0, 1]
 
     @override
     def __eq__(self, other):

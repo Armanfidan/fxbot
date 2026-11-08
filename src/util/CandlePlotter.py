@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Literal, List
 
 from pandas import DataFrame, Series
+import pandas as pd
 from plotly import graph_objects as go
 
 from src.model.candle.Price import Price
@@ -11,9 +12,11 @@ class CandlePlotter:
     def __init__(self, candles: DataFrame, from_time: datetime = None, to_time: datetime = None):
         self.candles: DataFrame = candles
         if from_time:
-            self.candles = self.candles[from_time < self.candles['time']]
+            start = pd.to_datetime(from_time, utc=True)
+            self.candles = self.candles[start < self.candles['time']]
         if to_time:
-            self.candles = self.candles[self.candles['time'] < to_time]
+            end = pd.to_datetime(to_time, utc=True)
+            self.candles = self.candles[self.candles['time'] < end]
         self.fig: go.Figure = go.Figure()
 
     def add_signal_trace(self, signal_type: Literal['buy', 'sell']):
@@ -33,7 +36,7 @@ class CandlePlotter:
         self.fig = self.plot_candles(title)
         for col in ["MA_{}".format(ma) for ma in (ma_short, ma_long)]:
             self.fig.add_trace(go.Scatter(x=self.candles['time'], y=self.candles[col],
-                                          line=dict(width=2, shape='spline'), name=col, zorder=100))
+                                          line=dict(width=2, shape='spline'), name=col))
         self.add_signal_trace('buy')
         self.add_signal_trace('sell')
         self.fig.show()
@@ -89,3 +92,12 @@ class CandlePlotter:
             showgrid=True, fixedrange=False
         )
         return fig
+
+    def plot_backtest(self, result):
+        self.fig = self.plot_candles(result.pair)
+        if not result.fills.empty:
+            for action, symbol in (('entry', 'triangle-up'), ('exit', 'triangle-down')):
+                rows = result.fills[result.fills.action == action]
+                self.fig.add_trace(go.Scatter(x=rows.time, y=rows.price, mode='markers',
+                                             marker=dict(symbol=symbol, size=10), name=action.title()))
+        self.fig.show()

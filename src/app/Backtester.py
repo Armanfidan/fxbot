@@ -1,243 +1,529 @@
-from __future__ import annotations
+"""Historical orchestration, conservative fills and unleveraged FX accounting."""
+import collections
 
-from datetime import datetime
+import dataclasses
 import itertools
-import sys
-from typing import List, Dict, Tuple
-
+import pathlib
+import numpy as np
 import pandas as pd
-from pandas import DataFrame
 
-# from math import isnan
-
-from src.client.DataClient import DataClient
-
-from src.util.Constants import INSTRUMENTS_FILENAME
-from src.util.PlotProperties import PlotProperties
-from src.util.IndicatorEvaluation import IndicatorEvaluation
-from src.util.Utilities import get_downloaded_price_data_for_pair
-from src.util.CandlePlotter import CandlePlotter
-from src.service.signal_generators.MovingAverageCrossoverSignalGenerator import MovingAverageCrossoverSignalGenerator
-# from src.service.signal_generators.SignalGenerator import SignalGenerator
-# from src.model.Trade import Trade
+from src.model.Backtest import BacktestConfig, BacktestResult, ConversionData
+from src.model.BacktestState import BacktestState
 from src.model.Granularity import Granularity
 from src.model.Indicator import Indicator
+from src.model.Trade import Trade
+from src.service.IndicatorEvaluator import IndicatorEvaluator
+from src.util.CandlePlotter import CandlePlotter
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal
-else:
-    from typing import Literal
+
+def validate_candles(candles, granularity):
+    """Validate without reordering, deduplicating or silently repairing market data."""
+    required = ['time'] + [f'{side}_{part}' for side in ('bid', 'ask', 'mid') for part in 'ohlc']
+    if candles.empty or not set(required) <= set(candles):
+        raise ValueError('Require nonempty timestamped bid/ask/mid OHLC data')
+
+    frame = candles.copy()
+    frame['time'] = pd.to_datetime(frame.time, utc=True)
+
+    if frame.time.isna().any() or not frame.time.is_monotonic_increasing or frame.time.duplicated().any():
+        raise ValueError('Candle timestamps must be valid, unique and sorted')
+
+    if (frame.time.diff().dropna() < granularity.value).any():
+        raise ValueError('Execution/strategy candles cannot overlap')
+
+    prices = frame[required[1:]].astype(float)
+    if not np.isfinite(prices.to_numpy()).all() or (prices <= 0).any().any():
+        raise ValueError('Prices must be positive and finite')
+    frame[required[1:]] = prices
+
+    for side in ('bid', 'ask', 'mid'):
+        if ((frame[f'{side}_h'] < frame[[f'{side}_o', f'{side}_c', f'{side}_l']].max(axis=1)) |
+            (frame[f'{side}_l'] > frame[[f'{side}_o', f'{side}_c', f'{side}_h']].min(axis=1))).any():
+            raise ValueError('Invalid OHLC bounds')
+
+    for part in 'ohlc':
+        if ((frame[f'bid_{part}'] > frame[f'mid_{part}']) | (frame[f'mid_{part}'] > frame[f'ask_{part}'])).any():
+            raise ValueError('Require bid <= mid <= ask')
+
+    return frame
+
+
+class Conversions:
+    def __init__(self, account, datasets):
+        self.account = account
+        self.datasets = {}
+        for pair, source in datasets.items():
+            frame = validate_candles(source.candles, source.granularity)
+            frame['available'] = frame.time + source.granularity.value
+            self.datasets[pair] = frame.set_index('available')
+
+    def convert(self, amount, currency, time):
+        # Identity
+        if currency == self.account or amount == 0:
+            return float(amount)
+
+        for pair, inverse in ((f'{currency}_{self.account}', False), (f'{self.account}_{currency}', True)):
+            if pair not in self.datasets:
+                continue
+
+            frame = self.datasets[pair]
+            index = frame.index.searchsorted(time, side='right') - 1
+            if index < 0:
+                continue
+
+            row = frame.iloc[index]
+            if inverse:
+                rate = 1 / (row.ask_c if amount > 0 else row.bid_c)
+            else:
+                rate = row.bid_c if amount > 0 else row.ask_c
+
+            return float(amount * rate)
+
+        raise ValueError(f'No completed direct/inverse {currency}/{self.account} conversion at {time}')
+
+    def acquisition_cost(self, amount, currency, time):
+        """How much of the account currency is required to buy [amount] of the supplied currency."""
+        return -self.convert(-amount, currency, time)
 
 
 class Backtester:
-    def __init__(self, indicator: Indicator = Indicator.MA_CROSSOVER, use_downloaded_currency_pairs: bool = True, data_range_for_plotting: PlotProperties = PlotProperties()):
-        self.data_client: DataClient = DataClient(live=False)
-        self.instruments: DataFrame = (pd.read_pickle(INSTRUMENTS_FILENAME) if use_downloaded_currency_pairs
-                                       else self.data_client.get_instruments_and_save_to_file())
-        self.indicator: Indicator = indicator
-        self.data_range_for_plotting: PlotProperties = data_range_for_plotting
-        self.plot_data: Dict[Tuple[str, int, int] | str, DataFrame] = {}
+    """Runs simulations sequentially; each run replaces this instance's account state."""
+    indicator: Indicator | None = None
 
-    def get_price_data_for_pair(self, pair: str, granularity: Granularity, from_time: datetime, to_time: datetime, use_only_downloaded_price_data: bool) -> DataFrame:
-        price_data: DataFrame = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
-        if price_data.size != 0:
-            return price_data
-        if use_only_downloaded_price_data:
-            raise IOError("No price data found for pair '{}'. Skipping pair - please enable \"use_only_downloaded_data\".".format(pair))
-        return self.data_client.create_data_for_pair(pair, granularity, from_time, to_time)
+    def __init__(self, use_downloaded_currency_pairs=True,
+                 data_range_for_plotting=None, config=None):
+        self._state: BacktestState | None = None
+        if self.indicator is None:
+            raise NotImplementedError("Use a concrete strategy backtester")
+        self._default_config = config or BacktestConfig(indicator=self.indicator)
+        self._validate_config(self._default_config)
+        self._config = self._default_config
+        self.data_range_for_plotting = data_range_for_plotting
+        self.plot_data = {}
+        self.results = []
+        self.data_client = None
+        self.instruments = None
+        self.use_downloaded_currency_pairs = use_downloaded_currency_pairs
 
-    def get_price_data_for_all_combinations_of_currencies(self,
-                                                          currencies: List[str],
-                                                          granularity: Granularity,
-                                                          use_only_downloaded_price_data: bool,
-                                                          from_time: datetime,
-                                                          to_time: datetime) -> Dict[str, DataFrame]:
-        """
-        For all selected currency combinations, retrieve historical price data. Look for downloaded prices first. If not found, download from OANDA.
-        :param currencies: Currencies to pair up and retrieve data for.
-        :param granularity: Price data granularity.
-        :param use_only_downloaded_price_data: If True, skips pairs without downloaded data. If false, retrieves data from OANDA for pairs without downloaded data.
-        :param from_time: The start date and time to download the price data from.
-        :param to_time: The end date and time to download the price data to.
-        :return: A dictionary with pairs and their corresponding historical trade data.
-        """
-        currency_data: Dict[str, DataFrame] = {}
-        for curr1 in currencies:
-            for curr2 in currencies:
-                pair = '{}_{}'.format(curr1, curr2)
-                if (curr1 == curr2) or pair not in self.instruments['name'].unique():
-                    continue
-                try:
-                    currency_data[pair] = self.get_price_data_for_pair(pair, granularity, from_time, to_time, use_only_downloaded_price_data)
-                except IOError as e:
-                    print(e)
-                    continue
-        return currency_data
+    @property
+    def config(self) -> BacktestConfig:
+        """Configuration for the current or most recent run; defaults before the first run."""
+        return self._config
+
+    @property
+    def state(self) -> BacktestState:
+        """Account state for the current or most recently initialised run."""
+        if self._state is None:
+            raise RuntimeError('Backtest state is not initialised; call run_data() first')
+        return self._state
+
+    def run_data(self, pair, strategy_candles, execution_candles=None, conversion_data=None, config=None):
+        """Run one independently funded simulation with opening-timestamped UTC candles."""
+        config = config or self._default_config
+        self._validate_config(config)
+        self._config = config
+        if len(pair.split('_')) != 2:
+            raise ValueError('Pair must be BASE_QUOTE')
+
+        strategy, execution = self._prepare_candles(strategy_candles, execution_candles)
+        signals = self._generate_signals(pair, strategy)
+
+        events = collections.deque(signals.loc[signals.signal != 0].to_dict('records'))
+        if events and events[0]['available_time'] < execution.time.iloc[0]:
+            raise ValueError('Execution history starts after the first actionable signal')
+
+        # Initialise state
+        datasets = dict(conversion_data or {})
+        datasets.setdefault(pair, ConversionData(execution, self.config.execution_granularity))
+        conversions = Conversions(self.config.account_currency, datasets)
+        self._state = BacktestState(
+            pair=pair,
+            balance=self.config.initial_balance,
+            last_rollover=execution.time.iloc[0] - pd.Timedelta(microseconds=1),
+        )
+        last_mark = None
+        self._record_equity(execution.time.iloc[0], 0, conversions)
+
+        # Iterate execution candles
+        for row in execution.to_dict('records'):
+            start = row['time']
+            end = start + self.config.execution_granularity.value
+            # Positions survive gaps; financing uses the last observable mark.
+            gap_mark = last_mark if last_mark is not None else row['bid_o']
+            self._accrue_financing(start, gap_mark, conversions)
+
+            while events and events[0]['available_time'] <= start:
+                self._accept_signal(events.popleft())
+
+            self._process_candle(row, conversions)
+
+            mark = row['bid_c' if self.state.position is None or self.state.position.signal == 1 else 'ask_c']
+            if self.state.last_rollover < end:
+                self._accrue_candle_financing(row, conversions)
+            self._record_equity(end, mark, conversions)
+            last_mark = mark
+
+        self._finish_run(execution.iloc[-1], events, conversions)
+        result = self._build_result(signals)
+        self.results.append(result)
+
+        self.plot_data[(pair, *self._result_key(self.config))] = signals
+        return result
+
+    def _validate_config(self, config):
+        if config.indicator != self.indicator:
+            raise ValueError(f'{type(self).__name__} requires {self.indicator.name}')
+
+    def _create_signal_generator(self, pair):
+        raise NotImplementedError
+
+    def _accept_signal(self, event):
+        raise NotImplementedError
+
+    def _process_candle(self, row, conversions):
+        raise NotImplementedError
+
+    def _experiment_configs(self, ma_windows):
+        raise NotImplementedError
+
+    def _default_execution_granularity(self, trade_granularity):
+        raise NotImplementedError
+
+    def _result_key(self, config):
+        raise NotImplementedError
+
+    def _plot_result(self, plotter, result, props):
+        raise NotImplementedError
+
+    def _prepare_candles(self, strategy_candles, execution_candles):
+        """Validate prices and ensure execution intervals respect signal availability."""
+        strategy = validate_candles(strategy_candles, self.config.strategy_granularity)
+
+        if execution_candles is None:
+            if self.config.execution_granularity != self.config.strategy_granularity:
+                raise ValueError('Separate execution candles required for finer simulation')
+            execution_candles = strategy
+
+        execution = validate_candles(execution_candles, self.config.execution_granularity)
+
+        if (
+            (execution.time.iloc[-1] + self.config.execution_granularity.value)
+            < (strategy.time.iloc[-1] + self.config.strategy_granularity.value)
+        ):
+            raise ValueError('Execution history ends before strategy history completes')
+
+        # Make sure strategy and execution candle boundaries align
+        boundaries = pd.Index(strategy.time + self.config.strategy_granularity.value)
+        opens = pd.DatetimeIndex(execution.time)
+        for boundary in boundaries:
+            index = opens.searchsorted(boundary, side='right') - 1
+            if index >= 0 and opens[index] < boundary < opens[index] + self.config.execution_granularity.value:
+                raise ValueError('Strategy completion cuts through an execution candle')
+
+        return strategy, execution
+
+    def _generate_signals(self, pair: str, strategy: pd.DataFrame) -> pd.DataFrame:
+        """Replay the incremental strategy and timestamp when each signal becomes usable."""
+        generator = self._create_signal_generator(pair)
+
+        generator.generate_signals_for_backtesting(strategy)
+        signals = generator.generate_signals_dataframe()
+        signals['available_time'] = signals.time + self.config.strategy_granularity.value
+        return signals
+
+    def _record_equity(self, time: pd.Timestamp, mark: float, conversions: Conversions) -> None:
+        """Append a valuation snapshot without changing the account or position."""
+        position = self.state.position
+        unrealised = conversions.convert(position.quote_pnl(mark), self.state.quote_currency, time) if position else 0.0
+        self.state.equity.append({
+            'time': time,
+            'balance': self.state.balance,
+            'unrealised_pnl': unrealised,
+            'equity': self.state.balance + unrealised,
+            'reserved_notional': position.reserved_notional if position else 0.0,
+            'position_units': position.signal * position.units if position else 0,
+        })
 
     @staticmethod
-    def create_results_df(results: List[IndicatorEvaluation]) -> DataFrame:
-        results_dicts: List[Dict[str, str]] = []
-        for result in results:
-            result_dict: Dict[str, str] = vars(result)
-            result_dict.pop('signals')
-            results_dicts.append(result_dict)
-        results_df: DataFrame = DataFrame(results_dicts)
-        return results_df.set_index('pair')
+    def _next_rollover(after: pd.Timestamp) -> pd.Timestamp:
+        """Cutoff is at 22:00 UTC. Return today's cutoff, or tomorrow's cutoff if today's one has already passed."""
+        cutoff = after.normalize() + pd.Timedelta(hours=22)
+        return cutoff + pd.Timedelta(days=1) if cutoff <= after else cutoff
 
-    def save_results(self, results: DataFrame, file_type: Literal['csv', 'pickle']) -> None:
-        test_results_folder = 'test_results'
-        filename = '{}/{}_test_res_{}.{{}}'.format(test_results_folder, self.indicator.value, datetime.now().strftime('%Y%m%d-%H%M%S'))
-        if file_type == 'csv':
-            results.to_csv(filename.format('csv'))
-        else:
-            results.to_pickle(filename.format('pkl'))
-        print(results)
+    def _accrue_financing(
+        self,
+        until: pd.Timestamp,
+        mark: float,
+        conversions: Conversions,
+    ) -> None:
+        """Apply each unprocessed rollover once, including rollovers inside data gaps."""
+        cutoff = self._next_rollover(self.state.last_rollover)
+        position = self.state.position
+
+        while cutoff <= until:
+            if (position is not None) and (position.entry_time < cutoff):
+                rates = (self.config.costs.financing_rates or {}).get(self.state.pair, {})
+                rate = rates.get('long' if position.signal == 1 else 'short', 0.0)
+
+                amount = position.reserved_notional * rate
+                position.financing += amount
+                self.state.balance += amount
+                self.state.financing.append({
+                    'time': cutoff, 'trade_id': position.trade_id, 'amount': amount, 'rate': rate,
+                })
+                if amount:
+                    self._record_equity(cutoff, mark, conversions)
+
+            cutoff += pd.Timedelta(days=1)
+        self.state.last_rollover = until
+
+    def _accrue_candle_financing(self, row: dict, conversions: Conversions) -> None:
+        """Use the opening mark for interior rollovers; the closing mark is known only at the end."""
+        end = row['time'] + self.config.execution_granularity.value
+        side = 'bid' if self.state.position is None or self.state.position.signal == 1 else 'ask'
+
+        cutoff = self._next_rollover(self.state.last_rollover)
+        while cutoff < end:
+            self._accrue_financing(cutoff, row[f'{side}_o'], conversions)
+            cutoff += pd.Timedelta(days=1)
+
+        self._accrue_financing(end, row[f'{side}_c'], conversions)
+
+    def _enter_position(
+        self,
+        order: dict,
+        raw_price: float,
+        time: pd.Timestamp,
+        conversions: Conversions,
+        ambiguous: bool = False,
+    ) -> bool:
+        """Reserve capital and record an entry, or record a capital rejection without a fill."""
+        if self.state.position is not None:
+            raise ValueError('Cannot enter while a position is already open')
+
+        direction = int(order['signal'])
+        slippage = (self.config.costs.slippage_pips or 0) * 10 ** self.config.pip_location
+        commission = self.config.costs.commission_per_fill or 0.0
+        price = raw_price + direction * slippage
+
+        if price <= 0:
+            raise ValueError('Slippage produced a nonpositive price')
+
+        notional = conversions.acquisition_cost(self.config.units, self.state.base_currency, time)
+        liquidation = raw_price - direction * max(0.0, order.get('spread', 0.0))
+        immediate_loss = max(0.0, -conversions.convert(
+            direction * self.config.units * (liquidation - price), self.state.quote_currency, time,
+        ))
+
+        required = notional + commission + immediate_loss
+        if required > self.state.balance + 1e-9:
+            order['status'] = 'rejected'
+            self.state.rejected_orders.append({
+                'time': time, 'order_id': order['order_id'], 'reason': 'insufficient_capital',
+                'required': required, 'available': self.state.balance,
+            })
+            return False
+
+        self.state.position = Trade(
+            trade_id=self.state.next_trade_id,
+            pair=self.state.pair,
+            signal=direction,
+            units=self.config.units,
+            signal_time=order['available_time'],
+            entry_time=time,
+            entry_price=price,
+            reserved_notional=notional,
+            stop_loss=order.get('stop_loss'),
+            take_profit=order.get('take_profit'),
+            commission=commission,
+            ambiguous=ambiguous,
+        )
+
+        self.state.next_trade_id += 1
+        self.state.balance -= commission
+        order['status'] = 'filled'
+
+        self.state.fills.append({
+            'time': time, 'order_id': order['order_id'], 'trade_id': self.state.position.trade_id,
+            'action': 'entry', 'direction': direction, 'units': self.config.units,
+            'price': price, 'commission': commission, 'reason': 'signal',
+        })
+        self._record_equity(time, liquidation, conversions)
+        return True
+
+    def _exit_position(
+        self,
+        raw_price: float,
+        time: pd.Timestamp,
+        reason: str,
+        conversions: Conversions,
+        order_id: int | None = None,
+    ) -> None:
+        """Realise P&L, charge exit commission and release the position's reserved capital."""
+        position = self.state.position
+        if position is None:
+            raise ValueError('Cannot exit without an open position')
+
+        slippage = (self.config.costs.slippage_pips or 0) * 10 ** self.config.pip_location
+        commission = self.config.costs.commission_per_fill or 0.0
+        price = raw_price if reason == 'take_profit' else raw_price - position.signal * slippage
+
+        if price <= 0:
+            raise ValueError('Slippage produced a nonpositive price')
+        position.exit_price, position.exit_time, position.exit_reason = price, time, reason
+        position.gross_pnl = conversions.convert(position.quote_pnl(price), self.state.quote_currency, time)
+        position.commission += commission
+
+        self.state.balance += position.gross_pnl - commission
+        self.state.fills.append({
+            'time': time, 'order_id': order_id, 'trade_id': position.trade_id,
+            'action': 'exit', 'direction': -position.signal, 'units': position.units,
+            'price': price, 'commission': commission, 'reason': reason,
+        })
+        self.state.trades.append(position.record())
+        self.state.position = None
+        self._record_equity(time, 0, conversions)
+
+    def _finish_run(
+        self,
+        final_row: dict,
+        remaining_events: dict,
+        conversions: Conversions,
+    ) -> None:
+        """Liquidate any remaining position and expire orders with no execution opportunity."""
+        final_time = final_row['time'] + self.config.execution_granularity.value
+
+        if self.state.position:
+            price = final_row['bid_c' if self.state.position.signal == 1 else 'ask_c']
+            self._exit_position(price, final_time, 'final_liquidation', conversions)
+            self._record_equity(final_time, 0, conversions)
+
+        if self.state.pending_order:
+            self.state.pending_order['status'] = 'expired'
+            self.state.pending_order = None
+
+        for event in remaining_events:
+            self.state.orders.append(dict(event, order_id=len(self.state.orders) + 1, status='expired'))
+
+    def _build_result(self, signals: pd.DataFrame) -> BacktestResult:
+        """Expose the completed ledgers and metrics through the existing result interface."""
+        equity = pd.DataFrame(self.state.equity)
+        trades = pd.DataFrame(self.state.trades)
+        metrics = IndicatorEvaluator(self.state.pair, equity, trades, self.config.annual_risk_free_rate).metrics()
+
+        return BacktestResult(
+            pair=self.state.pair,
+            configuration=self.config,
+            signals=signals,
+            orders=pd.DataFrame(self.state.orders),
+            fills=pd.DataFrame(self.state.fills),
+            trades=trades,
+            equity=equity,
+            rejected_orders=pd.DataFrame(self.state.rejected_orders),
+            financing=pd.DataFrame(self.state.financing),
+            metrics=metrics,
+            ambiguous_candles=self.state.ambiguous_candles,
+            omitted_costs=self.config.costs.omitted(self.state.pair),
+        )
+
+    def _retrieve_instruments(self):
+        """Import the client and retrieve instruments only if they are not available.
+        This removes the dependency on OANDA if instruments are provided."""
+        from src.client.OandaDataClient import OandaDataClient
+        from src.util.Constants import INSTRUMENTS_FILENAME
+        if self.instruments is None:
+            if self.use_downloaded_currency_pairs and pathlib.Path(INSTRUMENTS_FILENAME).exists():
+                self.instruments = pd.read_pickle(INSTRUMENTS_FILENAME)
+            else:
+                self.data_client = self.data_client or OandaDataClient(live=False)
+                self.instruments = self.data_client.get_instruments_and_save_to_file()
+        return self.instruments
+
+    def get_price_data_for_pair(self, pair, granularity, from_time, to_time, use_only_downloaded_price_data=False):
+        from src.util.Utilities import get_downloaded_price_data_for_pair
+        data = get_downloaded_price_data_for_pair(pair, granularity, from_time, to_time)
+        if not data.empty:
+            data = data.copy()
+            data['time'] = pd.to_datetime(data.time, utc=True)
+            start, end = pd.to_datetime(from_time, utc=True), pd.to_datetime(to_time, utc=True)
+            data = data.loc[(data.time >= start) & (data.time + granularity.value <= end)]
+            if not data.empty:
+                return data.reset_index(drop=True)
+        if use_only_downloaded_price_data:
+            raise IOError(f'No cached data for {pair} at {granularity.name}')
+        from src.client.OandaDataClient import OandaDataClient
+        self.data_client = self.data_client or OandaDataClient(live=False)
+        return self.data_client.create_data_for_pair(pair, granularity, pd.to_datetime(from_time, utc=True), pd.to_datetime(to_time, utc=True))
+
+    def run(
+        self,
+        currencies,
+        trade_granularity=Granularity.H4,
+        from_time=None,
+        to_time=None,
+        simulation_granularity=None,
+        use_only_downloaded_price_data=False,
+        ma_windows=None,
+        file_type='csv',
+        output_directory='test_results',
+        conversion_data=None
+    ):
+        if from_time is None or to_time is None:
+            raise ValueError('Explicit from_time and to_time required')
+
+        defaults = self._default_config
+        instruments = self._retrieve_instruments()
+        supported = set(instruments.name)
+        results = []
+        experiments = self._experiment_configs(ma_windows)
+        execution_granularity = simulation_granularity or self._default_execution_granularity(trade_granularity)
+
+        for base, quote in itertools.product(currencies, repeat=2):
+            pair = f'{base}_{quote}'
+            if base == quote or pair not in supported:
+                continue
+
+            strategy = self.get_price_data_for_pair(pair, trade_granularity, from_time, to_time, use_only_downloaded_price_data)
+            execution = (
+                strategy if execution_granularity == trade_granularity
+                else self.get_price_data_for_pair(pair, execution_granularity, from_time, to_time, use_only_downloaded_price_data)
+            )
+
+            conversions = dict(conversion_data or {})
+            for currency in {base, quote} - {defaults.account_currency}:
+                direct, inverse = f'{currency}_{defaults.account_currency}', f'{defaults.account_currency}_{currency}'
+                conversion_pair = direct if direct in supported else inverse
+                if direct in conversions or inverse in conversions or conversion_pair == pair:
+                    continue
+                if conversion_pair not in supported:
+                    raise ValueError(f'No conversion instrument for {currency}')
+
+                # Include a completed observation before the first potential entry.
+                data = self.get_price_data_for_pair(conversion_pair, execution_granularity, from_time, to_time, use_only_downloaded_price_data)
+                conversions[conversion_pair] = ConversionData(data, execution_granularity)
+
+            for experiment in experiments:
+                config = dataclasses.replace(
+                    experiment,
+                    strategy_granularity=trade_granularity,
+                    execution_granularity=execution_granularity,
+                    pip_location=int(instruments.loc[instruments.name == pair, 'pipLocation'].iloc[0])
+                )
+                result = self.run_data(pair, strategy, execution, conversions, config)
+                suffix = '_'.join(map(str, self._result_key(config)))
+                folder = pathlib.Path(output_directory) / f'{pair}_{self.indicator.name}_{suffix}'
+                result.export(folder)
+
+                if file_type in ('pkl', 'pickle'):
+                    pd.to_pickle(result, folder / 'result.pkl')
+                results.append(result)
+
+        return results
 
     def plot_results_for_selected_data(self):
-        if not self.plot_data:
-            raise ValueError("No data saved for plotting.")
-
-        if self.indicator == Indicator.MA_CROSSOVER:
-            for (pair, short_window, long_window), data in self.plot_data.items():
-                plot_start = self.data_range_for_plotting.from_time
-                plot_end = self.data_range_for_plotting.to_time
-                title = "{} Indicator performance for Currency Pair {}, with windows {} and {}, from {} to {}" \
-                    .format(self.indicator.value, pair, short_window, long_window, plot_start, plot_end)
-                CandlePlotter(data, plot_start, plot_end).plot_candles_for_ma_crossover(short_window, long_window, title)
-
-        elif self.indicator == Indicator.INSIDE_BAR_MOMENTUM:
-            for pair, data in self.plot_data.items():
-                plot_start = self.data_range_for_plotting.from_time
-                plot_end = self.data_range_for_plotting.to_time
-                title = "{} Indicator performance for Currency Pair {}, from {} to {}" \
-                    .format(self.indicator.value, pair, plot_start, plot_end)
-                CandlePlotter(data, plot_start, plot_end).plot_candles_for_inside_bar_momentum(title)
-
-    def simulate_ma_crossover(self, ma_windows: List[int], pair: str, pip_location: int, granularity: Granularity, candle_data: DataFrame, results: List[IndicatorEvaluation]):
-        for short_window, long_window in itertools.combinations(ma_windows, 2):
-            if short_window >= long_window:
+        props = self.data_range_for_plotting
+        for result in self.results:
+            if props and result.pair not in (getattr(props, 'currency_pairs', None) or []):
                 continue
-            signal_generator: MovingAverageCrossoverSignalGenerator = MovingAverageCrossoverSignalGenerator(pair, pip_location, granularity, short_window, long_window)
-            signal_generator.generate_signals_for_backtesting(candle_data, use_pips=True)
-            results.append(signal_generator.evaluate_indicator())
-            # Save data to be plotted
-            if pair in self.data_range_for_plotting.currency_pairs and (short_window, long_window) in self.data_range_for_plotting.ma_pairs:
-                self.plot_data[(pair, short_window, long_window)] = signal_generator.generate_signals_dataframe()
-
-    # TODO: Implement the signal generator for this indicator and re-enable backtesting
-    # def simulate_inside_bar_momentum(self,
-    #                                  pair: str,
-    #                                  results: List[IndicatorEvaluation],
-    #                                  signal_generator: SignalGenerator,
-    #                                  simulation_granularity: Granularity,
-    #                                  from_time: datetime,
-    #                                  to_time: datetime,
-    #                                  use_only_downloaded_price_data: bool):
-    #     if simulation_granularity not in [Granularity.S5, Granularity.S10, Granularity.S15, Granularity.S30, Granularity.M1, Granularity.M2, Granularity.M3, Granularity.M4, Granularity.M5]:
-    #         raise ValueError("The simulation granularity is too coarse for te inside bar momentum simulation. Please choose a granularity finer than M5.")
-    #     signal_generator.generate_signals_for_backtesting(use_pips=True)
-    #     simulation_data: DataFrame = self.get_price_data_for_pair(pair, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
-    #     simulation_data = self.sort_and_reset(simulation_data)
-    #
-    #     signal_cols = ['time', 'signal', 'entry_stop', 'stop_loss', 'take_profit']
-    #     sim_data_tmp: DataFrame = pd.merge_asof(signal_generator.signals[signal_cols], simulation_data, on='time', tolerance=simulation_granularity.value, direction='nearest')
-    #     simulation_data = simulation_data.merge(sim_data_tmp[signal_cols], how='left', on='time')
-    #     del sim_data_tmp
-    #     simulation_data = self.sort_and_reset(simulation_data[simulation_data[simulation_data['signal'].notna()].index[0]:])  # Remove candles until the first trade, won't make a diff.
-    #
-    #     non_materialised_trades: List[Dict[str, Any]] = []
-    #     closed_trades: List[Dict[str, Any]] = []
-    #     current_trade: Trade | None = Trade(simulation_data.iloc[0])
-    #     closed_trade_already_saved: bool = False
-    #
-    #     for index, row in simulation_data.iterrows():
-    #         # Our trade is closed and there are no new trades. Keep skipping.
-    #         if closed_trade_already_saved and isnan(row['signal']):
-    #             continue
-    #
-    #         current_trade.update(row)
-    #
-    #         # --- CASE WHEN WE HAVE A NEW TRADE. ---
-    #         if not isnan(row['signal']):
-    #             if current_trade.is_open():  # Check whether the previous trade is open.
-    #                 current_trade.close_trade(row)  # If so, close and append to the non-materialised trades list.
-    #                 non_materialised_trades.append(vars(current_trade))
-    #             current_trade = Trade(row)  # Create a new trade from the current row.
-    #             closed_trade_already_saved = False  # New trade! Not already saved.
-    #             continue  # We don't want to update the trade (We just opened it), so skip the rest.
-    #
-    #         # --- CASE WHEN THE TRADE IS CLOSED ---
-    #         if current_trade.exit_time is not None and not closed_trade_already_saved:
-    #             closed_trades.append(vars(current_trade))
-    #             closed_trade_already_saved = True
-    #
-    #     closed_trades_df: DataFrame = DataFrame(closed_trades)
-    #     closed_trades_df['trade_closed'] = True
-    #     non_materialised_trades_df: DataFrame = DataFrame(non_materialised_trades)
-    #     non_materialised_trades_df.drop(columns=['signal', 'entry_stop', 'stop_loss', 'take_profit', '_Trade__trade_is_open'], inplace=True)
-    #     non_materialised_trades_df['trade_closed'] = False
-    #
-    #     simulation_data = simulation_data.merge(closed_trades_df[['time', 'entry_time', 'entry_price', 'exit_time', 'exit_price', 'trade_closed']], how='left', on='time')
-    #     simulation_data = simulation_data[~simulation_data['time'].isin(list(non_materialised_trades_df['time']))]
-    #     simulation_data = self.sort_and_reset(pd.concat([simulation_data, non_materialised_trades_df]))
-    #
-    #     signal_generator.set_candles_df(simulation_data)
-    #     signal_generator.generate_inside_bar_momentum_signal_detail_columns(use_pips=True)
-    #     results.append(signal_generator.evaluate_indicator())
-    #     # Save data to be plotted
-    #     if pair in self.data_range_for_plotting.currency_pairs:
-    #         self.plot_data[pair] = signal_generator.queue.copy()
-
-    @staticmethod
-    def sort_and_reset(simulation_data):
-        """
-        Sorts the simulation data DataFrame by time and resets its index.
-        :param simulation_data: Simulation data DataFrame to use.
-        :return: The sorted and reset DataFrame.
-        """
-        return simulation_data.sort_values(by='time').reset_index(drop=True)
-
-    # noinspection PyTypeChecker
-    def run(self,
-            currencies: List[str],
-            trade_granularity: Granularity,
-            from_time: datetime,
-            to_time: datetime = datetime.now(),
-            simulation_granularity: Granularity = None,
-            use_only_downloaded_price_data: bool = False,
-            ma_windows: List[int] | None = None, file_type: str = Literal['csv', 'pkl']) -> None:
-        """
-        Run simulations on selected currencies with a given indicator between given dates. Save the results.
-        :param simulation_granularity: In some cases, the simulation might have to be run at a different granularity than
-        when the trades are generated. If not specified, this will be set to the same granularity as the trade granularity.
-        :param currencies: Currency pairs to run the simulation for.
-        :param trade_granularity: Historical price granularity to run simulations on.
-        :param from_time: Start date for historical data to run simulations from.
-        :param to_time: End date for historical data to run simulations to.
-        :param use_only_downloaded_price_data: Whether to skip currency pairs where no downloaded price data was found.
-         If False, will download price data from the OANDA API where missing.
-        :param ma_windows: Only provide if the indicator is MA_CROSSOVER. The moving average windows to run the simulation for.
-        The simulation will be run on all logical combinations on these windows.
-        :param file_type: The output file type. Can be 'csv' or 'pkl'.
-        """
-        if self.indicator == Indicator.MA_CROSSOVER and not ma_windows:
-            ma_windows = [4, 8, 16, 32, 64, 96, 128, 256]
-        if not simulation_granularity:
-            simulation_granularity = trade_granularity
-        # Retrieve candles for each currency
-        historical_price_data_for_currencies: Dict[str, DataFrame] = \
-            self.get_price_data_for_all_combinations_of_currencies(currencies, trade_granularity, use_only_downloaded_price_data, from_time, to_time)
-
-        results: List[IndicatorEvaluation] = []
-        for pair, price_data in historical_price_data_for_currencies.items():
-            print("Running simulation for pair", pair)
-            pip_location = float(self.instruments.query('name=="{}"'.format(pair))['pipLocation'].iloc[0])
-
-            if self.indicator == Indicator.MA_CROSSOVER:
-                self.simulate_ma_crossover(ma_windows, pair, pip_location, trade_granularity, price_data, results)
-
-            # elif self.indicator == Indicator.INSIDE_BAR_MOMENTUM:
-            #     self.simulate_inside_bar_momentum(pair, results, simulation_granularity, from_time, to_time, use_only_downloaded_price_data)
-
-        results_df = self.create_results_df(results)
-        self.save_results(results_df, file_type)
+            plotter = CandlePlotter(result.signals, props.from_time if props else None, props.to_time if props else None)
+            self._plot_result(plotter, result, props)

@@ -5,10 +5,10 @@ from src.model.signal_generator_iterations.SignalGeneratorIteration import Signa
 
 @dataclass
 class InsideBarMomentumIteration(SignalGeneratorIteration):
-    range_prev: float
-    mid_h_prev: float
-    mid_l_prev: float
-    direction_prev: float
-    entry_stop: float
-    stop_loss: float
-    take_profit: float
+    range_prev: float | None
+    mid_h_prev: float | None
+    mid_l_prev: float | None
+    direction_prev: float | None
+    entry_stop: float | None
+    stop_loss: float | None
+    take_profit: float | None

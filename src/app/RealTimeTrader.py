@@ -5,8 +5,8 @@ from typing import Dict
 import pika
 from pandas import DataFrame
 
-from src.client.DataClient import DataClient
-from src.client.OrderClient import OrderClient
+from src.client.OandaDataClient import OandaDataClient
+from src.client.OandaOrderClient import OandaOrderClient
 from src.service.signal_generators.SignalGenerator import SignalGenerator
 from src.model.Granularity import Granularity
 from src.model.Indicator import Indicator
@@ -24,14 +24,14 @@ class LiveTrader:
         self.pair: str = pair
         self.indicator: Indicator = indicator
         self.granularity: Granularity = granularity
-        self.data_client: DataClient = DataClient(live=live)
+        self.data_client: OandaDataClient = OandaDataClient(live=live)
         self.historical_data_start_time: datetime = historical_data_start_time
         self.candles: DataFrame = self._get_initial_price_data()
-        pip_location: float = DataClient.get_pip_location(pair)
+        pip_location: float = OandaDataClient.get_pip_location(pair)
         self.signal_generator: SignalGenerator = SignalGenerator(pair, pip_location, granularity, self.candles)
         self.signal_generator.generate_signals_for_backtesting(use_pips=True, **self.indicator_params)
 
-        self.order_client: OrderClient = OrderClient(live=live)
+        self.order_client: OandaOrderClient = OandaOrderClient(live=live)
 
     def _get_initial_price_data(self) -> DataFrame:
         return self.data_client.create_data_for_pair(self.pair, self.granularity, self.historical_data_start_time, datetime.now())
