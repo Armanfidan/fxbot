@@ -1,48 +1,45 @@
-from __future__ import annotations
-
+"""Explicit historical backtest entrypoint; never places broker orders."""
+import argparse
 from datetime import datetime
-from typing import List
-
-import src.util.Utilities as Utilities
-from src.client.OandaDataClient import OandaDataClient
-from src.util.PlotProperties import PlotProperties
-from src.model.Granularity import Granularity
+from src.app.MovingAverageCrossoverBacktester import MovingAverageCrossoverBacktester
+from src.app.InsideBarBacktester import InsideBarBacktester
+from src.model.Backtest import BacktestConfig, CostConfig
 from src.model.Indicator import Indicator
-from src.app.Backtester import Backtester
+from src.model.Granularity import Granularity
 
 
-def simulate_pairs(currencies: List[str]):
-    # currencies = ['EUR', 'USD', 'GBP']
-    # currencies = ['EUR', 'USD', 'GBP']
-    # data_range_for_plotting = PlotProperties(
-    #     currencies,
-    #     [(32, 64), (32, 128), (64, 128)],
-    #     datetime(2023, 1, 1),
-    #     datetime.now()
-    # )
-    data_range_for_plotting = PlotProperties(
-        currencies=currencies,
-        from_time=datetime(2024, 4, 1),
-        to_time=datetime.now()
-    )
-    simulator = Backtester(use_downloaded_currency_pairs=False, indicator=Indicator.INSIDE_BAR_MOMENTUM, data_range_for_plotting=data_range_for_plotting)
-    simulator.run(
-        currencies=currencies,
-        trade_granularity=Granularity.H4,
-        simulation_granularity=Granularity.M5,
-        use_only_downloaded_price_data=False,
-        from_time=datetime(2020, 1, 1),
-        to_time=datetime(2024, 6, 28, 20, 59, 14),
-        file_type='csv'
-    )
-    simulator.plot_results_for_selected_data()
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--from-time', required=True, help='ISO UTC timestamp')
+    parser.add_argument('--to-time', required=True, help='ISO UTC timestamp')
+    parser.add_argument('--currencies', nargs='+', default=['EUR', 'GBP'])
+    parser.add_argument('--indicator', choices=['MA_CROSSOVER', 'INSIDE_BAR_MOMENTUM'], default='MA_CROSSOVER')
+    parser.add_argument('--strategy-granularity', choices=[g.name for g in Granularity if g != Granularity.M], default='H4')
+    parser.add_argument('--execution-granularity', choices=[g.name for g in Granularity if g != Granularity.M], default='M5')
+    parser.add_argument('--windows', nargs='+', type=int, default=[16, 64])
+    parser.add_argument('--units', type=int, default=1000)
+    parser.add_argument('--initial-balance', type=float, default=10000)
+    parser.add_argument('--slippage-pips', type=float)
+    parser.add_argument('--commission', type=float)
+    parser.add_argument('--offline', action='store_true', help='Exact cache only; fail if data is absent')
+    parser.add_argument('--output', default='test_results')
+    args = parser.parse_args()
+
+    config = BacktestConfig(indicator=Indicator[args.indicator], initial_balance=args.initial_balance,
+                            units=args.units, costs=CostConfig(args.slippage_pips, args.commission))
+    backtester_class = {
+        Indicator.MA_CROSSOVER: MovingAverageCrossoverBacktester,
+        Indicator.INSIDE_BAR_MOMENTUM: InsideBarBacktester,
+    }[config.indicator]
+
+    results = backtester_class(config=config).run(
+        args.currencies, Granularity[args.strategy_granularity], datetime.fromisoformat(args.from_time),
+        datetime.fromisoformat(args.to_time), Granularity[args.execution_granularity], args.offline,
+        args.windows, output_directory=args.output)
+
+    for result in results:
+        print(result.pair, result.metrics, 'omitted costs:', result.omitted_costs)
 
 
 if __name__ == '__main__':
-    if not Utilities.instruments_file_exists():
-        OandaDataClient(live=False).get_instruments_and_save_to_file()
-
-    simulate_pairs(currencies=['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'NZD', 'CAD'])
-
-
-
+    main()
