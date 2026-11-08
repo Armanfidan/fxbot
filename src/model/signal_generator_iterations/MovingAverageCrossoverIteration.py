@@ -6,8 +6,8 @@ from src.model.signal_generator_iterations.SignalGeneratorIteration import Signa
 
 @dataclass
 class MovingAverageCrossoverIteration(SignalGeneratorIteration):
-    short_average: float
-    long_average: float
+    short_average: float | None
+    long_average: float | None
 
     @override
     def __eq__(self, other):

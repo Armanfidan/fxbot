@@ -1,81 +1,73 @@
+import pandas as pd
+
 from collections import deque
-from typing import Literal, override, List
-
-from pandas import DataFrame
-
-from src.model.Granularity import Granularity
-from src.model.candle.Candle import Candle
+import math
 from src.service.signal_generators.SignalGenerator import SignalGenerator
 from src.model.signal_generator_iterations.MovingAverageCrossoverIteration import MovingAverageCrossoverIteration
 
 
 class MovingAverageCrossoverSignalGenerator(SignalGenerator):
-    """
-    A generator to generate signals for the Moving Average Crossover indicator. Works for backtesting or iterative generation
-    for live trading.
-    """
-    def __init__(self, pair: str, pip_location: float, granularity: Granularity, short_window: int, long_window: int, initial_candles: DataFrame = None):
+    """O(1) full-window midpoint SMA updates; long/flat crossover signals."""
+    def __init__(self, pair, pip_location, granularity, short_window, long_window, initial_candles=None):
         super().__init__(pair, pip_location, granularity, initial_candles)
-        # Set windows and averages
-        self.short_window = short_window
-        self.long_window = long_window
-        self.current_long_average, self.current_short_average = 0, 0
-        # Set queue
-        self.queue: List[MovingAverageCrossoverIteration] = []
-        # Set queues
-        self.long_candles_queue: deque[Candle] = deque(maxlen=self.long_window)
-        self.short_candles_queue: deque[Candle] = deque(maxlen=self.short_window)
-        self.first_signal: bool = True
-        # Initialise queue if initial data was provided
-        if isinstance(initial_candles, DataFrame):
+        if any(not isinstance(w, int) or isinstance(w, bool) for w in (short_window, long_window)) or not 0 < short_window < long_window:
+            raise ValueError('Require integer windows: 0 < short < long')
+        self.short_window, self.long_window = short_window, long_window
+        self.short_candles_queue = deque(maxlen=short_window)
+        self.long_candles_queue = deque(maxlen=long_window)
+        self.current_short_average = self.current_long_average = 0.0
+        self._short_sum = self._long_sum = 0.0
+        self._previous_difference = None
+        self._holding = False
+        if initial_candles is not None:
             self.iterate_from_dataframe(initial_candles)
 
-    def generate_signal(self) -> int:
-        """
-        Generates a signal for the latest short and long total values.
-        :return: A signal: 1 for buy, -1 for sell and 0 for nothing.
-        """
-        if not self.short_candles_queue or not self.long_candles_queue or not self.queue:
+    def _iterate_queue(self, candle, window_type):
+        queue = getattr(self, window_type + '_candles_queue')
+        total = getattr(self, '_' + window_type + '_sum')
+        if len(queue) == queue.maxlen:
+            total -= queue.popleft().mid_c
+        queue.append(candle)
+        total += candle.mid_c
+        setattr(self, '_' + window_type + '_sum', total)
+        setattr(self, 'current_' + window_type + '_average', total / len(queue))
+
+    def generate_signal(self):
+        if len(self.long_candles_queue) < self.long_window:
             return 0
-        previous_difference = self.queue[-1].short_average - self.queue[-1].long_average
-        current_difference = self.current_short_average - self.current_long_average
-        if (current_difference <= 0 < previous_difference) and not self.first_signal:
-            return -1
-        if previous_difference < 0 <= current_difference:
-            self.first_signal = False
+        difference = self.current_short_average - self.current_long_average
+        # Stabilise equal averages against floating point summation noise.
+        if math.isclose(difference, 0.0, abs_tol=1e-12):
+            difference = 0.0
+        previous = self._previous_difference
+        self._previous_difference = difference
+        if previous is None:
+            return 0
+        if previous <= 0 < difference and not self._holding:
+            self._holding = True
             return 1
+        if previous >= 0 > difference and self._holding:
+            self._holding = False
+            return -1
         return 0
 
-    def _iterate_queue(self, candle, window_type: Literal["long", "short"]):
-        """
-        - Add new candle to the appropriate queue,
-        - Add the closing price to the total price,
-        - Remove the oldest closing price from the total price.
-        :param candle: The latest candle
-        :param window_type: Whether to iterate the long or short window queue.
-        """
-        # Defining variables based on window
-        window: int = vars(self)[window_type + '_window']
-        candles_queue: deque[Candle] = vars(self)[window_type + '_candles_queue']
-        # Updating the averages
-        if window_type == "long":
-            if len(candles_queue) >= window:
-                self.current_long_average -= candles_queue.popleft().mid_c / window
-            self.current_long_average += candle.mid_c / window
-        else:
-            if len(candles_queue) >= window:
-                self.current_short_average -= candles_queue.popleft().mid_c / window
-            self.current_short_average += candle.mid_c / window
-        candles_queue.append(candle)
+    def iterate(self, candle):
+        if candle.mid_c is None or not math.isfinite(candle.mid_c) or candle.mid_c <= 0:
+            raise ValueError('Require a positive finite midpoint close')
+        self._iterate_queue(candle, 'short')
+        self._iterate_queue(candle, 'long')
+        signal = self.generate_signal()
+        self.queue.append(MovingAverageCrossoverIteration(candle, signal,
+            self.current_short_average if len(self.short_candles_queue) == self.short_window else None,
+            self.current_long_average if len(self.long_candles_queue) == self.long_window else None))
 
-    @override
-    def iterate(self, candle: Candle) -> None:
-        self._iterate_queue(candle, window_type="long")
-        self._iterate_queue(candle, window_type="short")
-        iteration: MovingAverageCrossoverIteration = MovingAverageCrossoverIteration(
-            candle=candle,
-            signal=self.generate_signal(),
-            short_average=self.current_short_average,
-            long_average=self.current_long_average
-        )
-        self.queue.append(iteration)
+    def generate_signals_dataframe(self):
+        if not self.queue:
+            raise ValueError('Iterate the generator before retrieving signals')
+        rows = []
+        for iteration in self.queue:
+            detail = {k: v for k, v in vars(iteration).items() if k != 'candle'}
+            detail[f'MA_{self.short_window}'] = iteration.short_average
+            detail[f'MA_{self.long_window}'] = iteration.long_average
+            rows.append(vars(iteration.candle) | detail)
+        return pd.DataFrame(rows)
