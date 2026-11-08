@@ -5,3 +5,5 @@ pytest==8.3.2
 seaborn==0.13.2
 typing_extensions==4.12.2
 v20==3.0.25.0
+
+numpy
