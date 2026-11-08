@@ -1,22 +1,20 @@
+"""Paths are independent of cwd; offline imports never read credentials."""
 import json
-import os
+from pathlib import Path
 
+CURRENT_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
 PROJECT_ROOT_FOLDER_NAME = 'fxbot'
+OANDA_DEMO_HOSTNAME = 'api-fxpractice.oanda.com'
+OANDA_LIVE_HOSTNAME = 'api-fxtrade.oanda.com'
+DATA_FOLDER = str(Path(CURRENT_PROJECT_ROOT) / 'data')
+INSTRUMENTS_FILENAME = str(Path(DATA_FOLDER) / 'instruments.pkl')
+CANDLE_FOLDER = str(Path(DATA_FOLDER) / 'historical_data')
 
-CURRENT_PROJECT_ROOT: str = os.path.dirname(os.getcwd())
-if not CURRENT_PROJECT_ROOT.endswith(PROJECT_ROOT_FOLDER_NAME):
-    raise RuntimeError("Please run this project from the project root. Current directory: {}".format(CURRENT_PROJECT_ROOT))
 
-credentials = json.load(open(os.path.join(CURRENT_PROJECT_ROOT, 'configuration/credentials.json')))
-
-OANDA_DEMO_API_KEY = credentials['OANDA_DEMO_API_KEY']
-OANDA_DEMO_ACCOUNT_ID = credentials['OANDA_DEMO_ACCOUNT_ID']
-OANDA_DEMO_HOSTNAME = "api-fxpractice.oanda.com"
-
-OANDA_LIVE_API_KEY = credentials['OANDA_LIVE_API_KEY']
-OANDA_LIVE_ACCOUNT_ID = credentials['OANDA_LIVE_ACCOUNT_ID']
-OANDA_LIVE_HOSTNAME = "api-fxtrade.oanda.com"
-
-DATA_FOLDER = 'data'
-INSTRUMENTS_FILENAME = '{}/{}/instruments.pkl'.format(CURRENT_PROJECT_ROOT, DATA_FOLDER)
-CANDLE_FOLDER = '{}/{}/historical_data'.format(CURRENT_PROJECT_ROOT, DATA_FOLDER)
+def get_oanda_credentials(live):
+    path = Path(CURRENT_PROJECT_ROOT) / 'configuration' / 'credentials.json'
+    if not path.exists():
+        raise FileNotFoundError('OANDA access requires configuration/credentials.json; offline backtests do not')
+    credentials = json.loads(path.read_text())
+    environment = 'LIVE' if live else 'DEMO'
+    return credentials[f'OANDA_{environment}_API_KEY'], credentials[f'OANDA_{environment}_ACCOUNT_ID']

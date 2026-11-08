@@ -9,7 +9,7 @@ import v20
 import pandas as pd
 from pandas import DataFrame
 
-from src.util.Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, OANDA_DEMO_API_KEY, OANDA_LIVE_API_KEY, OANDA_DEMO_ACCOUNT_ID, OANDA_LIVE_ACCOUNT_ID, INSTRUMENTS_FILENAME
+from src.util.Constants import OANDA_DEMO_HOSTNAME, OANDA_LIVE_HOSTNAME, get_oanda_credentials, INSTRUMENTS_FILENAME
 from src.util.Utilities import prepare_candle, save_candles_to_file, save_instruments_to_file, validate_candles_df
 from src.model.Granularity import Granularity
 from src.model.candle.Candle import Candle
@@ -22,9 +22,10 @@ MAX_CANDLESTICKS: int = 5000
 class OandaDataClient:
     def __init__(self, live: bool):
         self.live: bool = live
+        token, self.account_id = get_oanda_credentials(live)
         self.api = v20.Context(
             hostname=OANDA_LIVE_HOSTNAME if live else OANDA_DEMO_HOSTNAME,
-            token=OANDA_LIVE_API_KEY if live else OANDA_DEMO_API_KEY,
+            token=token,
             datetime_format='UNIX'
         )
 
@@ -66,7 +67,7 @@ class OandaDataClient:
         Retrieves the instruments from the OANDA API and saves them to a file.
         :return: The instruments DataFrame.
         """
-        response: v20.response = self.api.account.instruments(OANDA_LIVE_ACCOUNT_ID if self.live else OANDA_DEMO_ACCOUNT_ID)
+        response: v20.response = self.api.account.instruments(self.account_id)
         instruments = DataFrame([vars(instrument) for instrument in response.body['instruments']])
         save_instruments_to_file(instruments)
         return instruments
@@ -94,7 +95,7 @@ class OandaDataClient:
         :param pair: Currency pair to get the latest price for.
         :return: A dictionary containing the ask, bid and midpoint prices and the timestamp.
         """
-        response: v20.response = self.api.pricing.get(OANDA_LIVE_ACCOUNT_ID if self.live else OANDA_DEMO_ACCOUNT_ID, instruments=pair)
+        response: v20.response = self.api.pricing.get(self.account_id, instruments=pair)
         if response.status != 200:
             raise HTTPException(
                 "Cannot get price for currency pair {}, status code: {}, error message: {}".format(pair, response.status, response.reason))
