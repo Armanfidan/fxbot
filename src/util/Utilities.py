@@ -21,7 +21,7 @@ def prepare_candle(_candle: Dict[str, Any]) -> Dict[str, float | datetime]:
     candle_dict: Dict[str, float] = {}
     for price in prices:
         candle_dict.update({'{}_{}'.format(price, subprice): float(value) for subprice, value in vars(_candle[price]).items()})
-    return {'time': datetime.fromtimestamp(float(_candle['time'])), 'volume': float(_candle['volume'])} | candle_dict
+    return {'time': pd.to_datetime(float(_candle['time']), unit='s', utc=True), 'volume': float(_candle['volume'])} | candle_dict
 
 
 def instruments_file_exists() -> bool:
