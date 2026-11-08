@@ -291,3 +291,17 @@ def test_short_gap_and_take_profit():
     result = execute_inside([opened,candle('2024-01-01T08:05Z',4)],short=True)
     assert result.trades.iloc[0].exit_reason == 'take_profit'
     assert result.trades.iloc[0].exit_price == pytest.approx(4.8)
+
+
+def test_plotting_preserves_ma_values_and_fill_markers(monkeypatch):
+    from src.util.CandlePlotter import CandlePlotter
+    from plotly import graph_objects as go
+    monkeypatch.setattr(go.Figure,'show',lambda self:None)
+    result = MovingAverageCrossoverBacktester(config=ma_config()).run_data('GBP_USD',frame([3,2,1,2,3]),conversion_data=conversion())
+    plotter = CandlePlotter(result.signals)
+    plotter.plot_candles_for_ma_crossover(1,3,'test')
+    assert len(plotter.fig.data) == 5
+    inside = execute_inside([candle('2024-01-01T08:00Z',12.5,16,12.5,16)])
+    plotter = CandlePlotter(inside.signals)
+    plotter.plot_backtest(inside)
+    assert len(plotter.fig.data) == 3
